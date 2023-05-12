@@ -1,10 +1,10 @@
 {
     "name": "pantheon-systems/terminus-plugin-icr",
-    "description": "An example Terminus command",
+    "description": "Pantheon Integrated Customer Repositories Plugin",
     "type": "terminus-plugin",
     "license": "MIT",
     "autoload": {
-        "psr-4": { "Pantheon\\TerminusHello\\": "src" }
+        "psr-4": { "Pantheon\\TerminusIcr\\": "src" }
     },
     "require-dev": {
         "phpunit/phpunit": "^9",
@@ -16,21 +16,15 @@
         "cbf": "phpcbf --standard=PSR2 -n src",
         "lint": "find src -name '*.php' -print0 | xargs -0 -n1 php -l",
         "unit": "phpunit --colors=always tests",
-        "functional": "TERMINUS_PLUGINS_DIR=.. PATH=tools/bin:$PATH bats -p -t tests/functional",
-        "install-bats": "if [ ! -f tools/bin/bats ] ; then git clone https://github.com/sstephenson/bats.git tools/bats; tools/bats/install.sh tools; fi",
-        "install-tools": [
-            "@install-bats"
-        ],
         "test": [
             "@lint",
             "@unit",
-            "@functional",
             "@cs"
         ]
     },
     "extra": {
         "terminus": {
-            "compatible-version": "^1||^2||^3"
+            "compatible-version": "^3"
         }
     }
 }
