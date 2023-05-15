@@ -1,6 +1,6 @@
 <?php
 
-namespace Pantheon\TerminusIcr\Commands;
+namespace Pantheon\TerminusRepository\Commands;
 
 use Pantheon\Terminus\Commands\TerminusCommand;
 use Pantheon\TerminusHello\Model\Greeter;
@@ -8,15 +8,15 @@ use Pantheon\TerminusHello\Model\Greeter;
 /**
  * Create a new pantheon site using ICR
  */
-class IcrSiteCreateCommand extends TerminusCommand
+class RepositorySiteCreateCommand extends TerminusCommand
 {
     /**
      * Creates a new site.
      *
      * @authorize
      *
-     * @command icr:site:create
-     * @aliases icr:site-create
+     * @command repository:site:create
+     * @aliases repository:site-create
      *
      * @param string $site_name Site name
      * @param string $label Site label

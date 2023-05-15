@@ -1,16 +1,16 @@
-# Terminus ICR Plugin
+# Terminus Repository Plugin
 
 [![Actively Maintained](https://img.shields.io/badge/Pantheon-Actively_Maintained-yellow?logo=pantheon&color=FFDC28)](https://pantheon.io/docs/oss-support-levels#actively-maintained-support)
 
 A Terminus plugin to manage ICR sites in Pantheon.
 
-Adds command 'icr:site:create' to Terminus.
+Adds command 'repository:site:create' to Terminus.
 
 ## Installation
 
 To install this plugin using Terminus 3:
 ```
-terminus self:plugin:install terminus-icr-plugun
+terminus self:plugin:install terminus-repository-plugun
 ```
 
 or clone from the repo and then:
@@ -32,4 +32,4 @@ Note that prior to running the tests, you should first run:
 * `composer install`
 
 ## Help
-Run `terminus help icr:site-create` for help.
+Run `terminus help repository:site-create` for help.
