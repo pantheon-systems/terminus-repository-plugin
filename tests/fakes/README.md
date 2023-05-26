@@ -8,7 +8,7 @@ Install requirements with:
 python3 -m pip install -r requirements.txt
 ```
 
-o an equivalent command in your environment.
+or an equivalent command in your environment.
 
 ## Running fakes
 
