@@ -7,7 +7,7 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-port = os.environ.get('FAKES_PORT', 8484)
+port = os.environ.get('TERMINUS_PAPI_PORT', 8443)
 
 workflows = {}
 
