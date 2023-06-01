@@ -47,7 +47,6 @@ class Client
       return $this->requestApi('authorize', $request_options);
     }
 
-
     /**
      * Performs the request to API path.
      *

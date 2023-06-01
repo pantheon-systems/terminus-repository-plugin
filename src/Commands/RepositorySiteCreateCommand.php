@@ -3,9 +3,11 @@
 namespace Pantheon\TerminusRepository\Commands;
 
 use Pantheon\Terminus\Commands\TerminusCommand;
+use Pantheon\Terminus\Exceptions\TerminusException;
+use Pantheon\Terminus\Request\RequestAwareInterface;
+use Pantheon\Terminus\Helpers\LocalMachineHelper;
 use Pantheon\TerminusRepository\VcsAuthApi\Client;
 use Pantheon\TerminusRepository\VcsAuthApi\VcsAuthClientAwareTrait;
-use Pantheon\Terminus\Request\RequestAwareInterface;
 
 /**
  * Create a new pantheon site using ICR
@@ -43,7 +45,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $this->log()->notice("Label: $label");
         $this->log()->notice("Upstream ID: $upstream_id");
         $this->log()->notice("VCS Organization: $vcs_organization");
-        $this->log()->notice("Options: " . print_r($options, true));
+        $this->log()->debug("Options: " . print_r($options, true));
 
         try {
             $data = $this->getClient()->authorize($vcs_organization);
@@ -54,9 +56,26 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        $this->log()->notice("Data: " . print_r($data, true));
-        $this->log()->notice("Click the link, user...");
+        $this->log()->debug("Data: " . print_r($data, true));
 
+        // Confirm required data is present
+        if (!isset($data['workflow_id'])) {
+            throw new TerminusException(
+                'Error authorizing with vcs_auth service: {error_message}',
+                ['error_message' => 'No workflow_id returned']
+            );
+        }
+        if (!isset($data['vcs_auth_link'])) {
+            throw new TerminusException(
+                'Error authorizing with vcs_auth service: {error_message}',
+                ['error_message' => 'No vcs_auth_link returned']
+            );
+        }
+
+
+        $this->getContainer()
+            ->get(LocalMachineHelper::class)
+            ->openUrl($data['vcs_auth_link']);
         // Poll vcs_auth for success indicator
     }
 }
