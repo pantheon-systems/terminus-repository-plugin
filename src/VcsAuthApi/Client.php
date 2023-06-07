@@ -4,27 +4,37 @@ namespace Pantheon\TerminusRepository\VcsAuthApi;
 
 use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Request\Request;
+use Pantheon\Terminus\Config\ConfigAwareTrait;
+use Robo\Contract\ConfigAwareInterface;
 
 /**
  * Vcs Auth API Client.
  */
-class Client
+class Client implements ConfigAwareInterface
 {
+    use ConfigAwareTrait;
+
     /**
      * @var \Pantheon\Terminus\Request\Request
      */
     protected Request $request;
 
     /**
+     * @var int
+     */
+    protected int $retryInterval;
+
+    /**
      * Constructor.
      *
      * @param \Pantheon\Terminus\Request\Request $request
+     * @param int $retry_interval
      */
-    public function __construct(Request $request)
+    public function __construct(Request $request, int $retry_interval)
     {
         $this->request = $request;
+        $this->retryInterval = $retry_interval;
     }
-
 
     /**
      * go-vcs-auth/authorize - returns (at least) workflow_id and vcs_auth_url
@@ -35,7 +45,7 @@ class Client
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
-    public function authorize($vcs_organization): array
+    public function authorize(string $vcs_organization): array
     {
       $request_options = [
         'json' => [
@@ -45,6 +55,31 @@ class Client
       ];
 
       return $this->requestApi('authorize', $request_options);
+    }
+
+    /**
+     * Process workflow until we get the expected status or an error.
+     */
+    public function processWorkflow(string $workflow_id, string $expected_status): array
+    {
+        do {
+            $workflow = $this->getWorkflow($workflow_id);
+            usleep($this->retryInterval * 1000);
+        } while ($workflow['status'] != $expected_status && $workflow['status'] != 'failed');
+
+        return $workflow;
+    }
+
+    /**
+     * Get workflow by id.
+     */
+    public function getWorkflow(string $workflow_id): array
+    {
+        $request_options = [
+            'method' => 'GET',
+        ];
+
+        return $this->requestApi('workflows/' . $workflow_id, $request_options);
     }
 
     /**

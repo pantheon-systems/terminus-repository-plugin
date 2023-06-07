@@ -16,6 +16,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 {
     use VcsAuthClientAwareTrait;
 
+    const AUTH_COMPLETE_STATUS = 'auth_complete';
+
     /**
      * Creates a new site.
      *
@@ -76,6 +78,12 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $this->getContainer()
             ->get(LocalMachineHelper::class)
             ->openUrl($data['vcs_auth_link']);
-        // Poll vcs_auth for success indicator
+
+        $this->log()->notice("Waiting for authorization to complete in browser...");
+        $workflow = $this->getClient()->processWorkflow($data['workflow_id'], self::AUTH_COMPLETE_STATUS);
+
+        $this->log()->notice("Authorization complete. Moving on...");
+
+        $this->log()->debug("Workflow: " . print_r($workflow, true));
     }
 }

@@ -33,7 +33,9 @@ trait VcsAuthClientAwareTrait {
       //     return $this->vcsAuthClient = new Client(new RequestMock());
       // }
 
-      return $this->vcsAuthClient = new Client($this->request());
+      $retry_interval = $this->getConfig()->get('http_retry_delay_ms', 1000);
+
+      return $this->vcsAuthClient = new Client($this->request(), $retry_interval);
   }
 
 }
