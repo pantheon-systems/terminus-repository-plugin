@@ -42,8 +42,8 @@ def getWorkflow(id):
 
     current_timestamp = time.time()
 
-    # Polling this will return auth_pending for 30 seconds and then will change to auth_complete
-    if current_timestamp - data["timestamp"] > 30:
+    # Polling this will return auth_pending for 15 seconds and then will change to auth_complete
+    if current_timestamp - data["timestamp"] > 15:
         data["status"] = "auth_complete"
         workflows[id] = data
 
