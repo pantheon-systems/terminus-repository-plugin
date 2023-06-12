@@ -50,7 +50,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $this->log()->debug("Options: " . print_r($options, true));
 
         try {
-            $data = $this->getClient()->authorize($vcs_organization);
+            $data = $this->getVcsAuthClient()->authorize($vcs_organization);
         } catch (\Throwable $t) {
             throw new TerminusException(
                 'Error authorizing with vcs_auth service: {error_message}',
@@ -80,7 +80,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             ->openUrl($data['vcs_auth_link']);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
-        $workflow = $this->getClient()->processWorkflow($data['workflow_id'], self::AUTH_COMPLETE_STATUS);
+        $workflow = $this->getVcsAuthClient()->processWorkflow($data['workflow_id'], self::AUTH_COMPLETE_STATUS);
 
         $this->log()->notice("Authorization complete. Moving on...");
 
