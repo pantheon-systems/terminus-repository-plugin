@@ -22,7 +22,7 @@ class Client implements ConfigAwareInterface
     /**
      * @var int
      */
-    protected int $retryInterval;
+    protected int $pollingInterval;
 
     /**
      * Constructor.
@@ -64,7 +64,8 @@ class Client implements ConfigAwareInterface
     {
         do {
             $workflow = $this->getWorkflow($workflow_id);
-            usleep($this->retryInterval * 1000);
+            // Multiply by 1000 to convert milliseconds to microseconds.
+            usleep($this->pollingInterval * 1000);
         } while ($workflow['status'] != $expected_status && $workflow['status'] != 'failed');
 
         return $workflow;
