@@ -22,7 +22,7 @@ trait VcsAuthClientAwareTrait {
    *
    * @return \Pantheon\TerminusRepository\VcsAuthApi\Client
    */
-  public function getClient(): Client
+  public function getVcsAuthClient(): Client
   {
       if (isset($this->vcsAuthClient)) {
           return $this->vcsAuthClient;

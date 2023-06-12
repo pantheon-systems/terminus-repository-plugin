@@ -28,12 +28,12 @@ class Client implements ConfigAwareInterface
      * Constructor.
      *
      * @param \Pantheon\Terminus\Request\Request $request
-     * @param int $retry_interval
+     * @param int $polling_interval
      */
-    public function __construct(Request $request, int $retry_interval)
+    public function __construct(Request $request, int $polling_interval)
     {
         $this->request = $request;
-        $this->retryInterval = $retry_interval;
+        $this->pollingInterval = $polling_interval;
     }
 
     /**
