@@ -8,13 +8,18 @@ use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Helpers\LocalMachineHelper;
 use Pantheon\TerminusRepository\VcsAuthApi\Client;
 use Pantheon\TerminusRepository\VcsAuthApi\VcsAuthClientAwareTrait;
+use Pantheon\Terminus\Site\SiteAwareInterface;
+use Pantheon\Terminus\Site\SiteAwareTrait;
+use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
 
 /**
  * Create a new pantheon site using ICR
  */
-class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwareInterface
+class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwareInterface, SiteAwareInterface
 {
     use VcsAuthClientAwareTrait;
+    use SiteAwareTrait;
+    use WorkflowProcessingTrait;
 
     const AUTH_COMPLETE_STATUS = 'auth_complete';
 
@@ -42,6 +47,10 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
     public function create($site_name, $label, $upstream_id, $vcs_organization, $options = ['org' => null, 'region' => null,])
     {
+        if ($this->sites()->nameIsTaken($site_name)) {
+            throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
+        }
+
         $this->log()->notice('Creating a new site...');
         $this->log()->notice("Site name: $site_name");
         $this->log()->notice("Label: $label");
@@ -74,16 +83,48 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-
         $this->getContainer()
             ->get(LocalMachineHelper::class)
             ->openUrl($data['vcs_auth_link']);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
         $workflow = $this->getVcsAuthClient()->processWorkflow($data['workflow_id'], self::AUTH_COMPLETE_STATUS);
-
-        $this->log()->notice("Authorization complete. Moving on...");
-
         $this->log()->debug("Workflow: " . print_r($workflow, true));
+
+        $this->log()->notice("Authorization complete. Creating site...");
+
+        // Site creation in Pantheon. This code is mostly coming from Terminus site:create command.
+        $workflow_options = [
+            'label' => $label,
+            'site_name' => $site_name,
+        ];
+        // If the user specified a region, then include it in the workflow
+        // options. We'll allow the API to decide whether the region is valid.
+        $region = $options['region'] ?? $this->config->get('command_site_options_region');
+        if ($region) {
+            $workflow_options['preferred_zone'] = $region;
+        }
+
+        $user = $this->session()->getUser();
+
+        // Locate upstream.
+        $upstream = $user->getUpstreams()->get($upstream_id);
+
+        // Locate organization.
+        if (!is_null($org_id = $options['org'])) {
+            $org = $user->getOrganizationMemberships()->get($org_id)->getOrganization();
+            $workflow_options['organization_id'] = $org->id;
+        }
+
+        // Create the site.
+        $this->log()->notice('Creating a new site...');
+        $site_create_workflow = $this->sites()->create($workflow_options);
+        $this->processWorkflow($site_create_workflow);
+        $this->log()->notice("New Site Id: " . $site_create_workflow->get('waiting_for_task')->site_id);
+
+        // Deploy the upstream.
+        if ($site = $this->getSiteById($site_create_workflow->get('waiting_for_task')->site_id)) {
+            $this->log()->notice('Next: Deploying CMS...');
+        }
     }
 }
