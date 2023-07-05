@@ -47,51 +47,17 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
     public function create($site_name, $label, $upstream_id, $vcs_organization, $options = ['org' => null, 'region' => null,])
     {
-        if ($this->sites()->nameIsTaken($site_name)) {
-            throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
-        }
 
-        $this->log()->notice('Creating a new site...');
+        // @todo Delete these debug lines.
         $this->log()->notice("Site name: $site_name");
         $this->log()->notice("Label: $label");
         $this->log()->notice("Upstream ID: $upstream_id");
         $this->log()->notice("VCS Organization: $vcs_organization");
         $this->log()->debug("Options: " . print_r($options, true));
 
-        try {
-            $data = $this->getVcsAuthClient()->authorize($vcs_organization);
-        } catch (\Throwable $t) {
-            throw new TerminusException(
-                'Error authorizing with vcs_auth service: {error_message}',
-                ['error_message' => $t->getMessage()]
-            );
+        if ($this->sites()->nameIsTaken($site_name)) {
+            throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
         }
-
-        $this->log()->debug("Data: " . print_r($data, true));
-
-        // Confirm required data is present
-        if (!isset($data['workflow_id'])) {
-            throw new TerminusException(
-                'Error authorizing with vcs_auth service: {error_message}',
-                ['error_message' => 'No workflow_id returned']
-            );
-        }
-        if (!isset($data['vcs_auth_link'])) {
-            throw new TerminusException(
-                'Error authorizing with vcs_auth service: {error_message}',
-                ['error_message' => 'No vcs_auth_link returned']
-            );
-        }
-
-        $this->getContainer()
-            ->get(LocalMachineHelper::class)
-            ->openUrl($data['vcs_auth_link']);
-
-        $this->log()->notice("Waiting for authorization to complete in browser...");
-        $workflow = $this->getVcsAuthClient()->processWorkflow($data['workflow_id'], self::AUTH_COMPLETE_STATUS);
-        $this->log()->debug("Workflow: " . print_r($workflow, true));
-
-        $this->log()->notice("Authorization complete. Creating site...");
 
         // Site creation in Pantheon. This code is mostly coming from Terminus site:create command.
         $workflow_options = [
@@ -120,7 +86,46 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $this->log()->notice('Creating a new site...');
         $site_create_workflow = $this->sites()->create($workflow_options);
         $this->processWorkflow($site_create_workflow);
-        $this->log()->notice("New Site Id: " . $site_create_workflow->get('waiting_for_task')->site_id);
+        $site_uuid = $site_create_workflow->get('waiting_for_task')->site_id;
+        $this->log()->notice("New Site Id: " . $site_uuid);
+
+        // @todo Create workflow on go-vcs-service and send site_uuid.
+
+        try {
+            $data = $this->getVcsAuthClient()->authorize($vcs_organization);
+        } catch (\Throwable $t) {
+            throw new TerminusException(
+                'Error authorizing with vcs_auth service: {error_message}',
+                ['error_message' => $t->getMessage()]
+            );
+        }
+
+        $this->log()->debug("Data: " . print_r($data, true));
+
+        // @todo Update to get stuff from the right place as per the payload.
+        // Confirm required data is present
+        if (!isset($data['workflow_id'])) {
+            throw new TerminusException(
+                'Error authorizing with vcs_auth service: {error_message}',
+                ['error_message' => 'No workflow_id returned']
+            );
+        }
+        if (!isset($data['vcs_auth_link'])) {
+            throw new TerminusException(
+                'Error authorizing with vcs_auth service: {error_message}',
+                ['error_message' => 'No vcs_auth_link returned']
+            );
+        }
+
+        $this->getContainer()
+            ->get(LocalMachineHelper::class)
+            ->openUrl($data['vcs_auth_link']);
+
+        $this->log()->notice("Waiting for authorization to complete in browser...");
+        $workflow = $this->getVcsAuthClient()->processWorkflow($data['workflow_id'], self::AUTH_COMPLETE_STATUS);
+        $this->log()->debug("Workflow: " . print_r($workflow, true));
+
+        $this->log()->notice("Authorization complete. Creating site...");
 
         // Deploy the upstream.
         if ($site = $this->getSiteById($site_create_workflow->get('waiting_for_task')->site_id)) {
