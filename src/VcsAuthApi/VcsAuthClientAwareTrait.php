@@ -28,11 +28,6 @@ trait VcsAuthClientAwareTrait {
           return $this->vcsAuthClient;
       }
 
-      /*  Probably not...? */
-      // if (getenv('TERMINUS_IS_TESTING_ENV')) {
-      //     return $this->vcsAuthClient = new Client(new RequestMock());
-      // }
-
       $polling_interval = $this->getConfig()->get('http_retry_delay_ms', 1000);
 
       return $this->vcsAuthClient = new Client($this->request(), $polling_interval);

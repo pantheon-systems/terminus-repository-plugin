@@ -133,7 +133,7 @@ class Client implements ConfigAwareInterface
      *
      * @return string
      */
-    protected function getPantheonApiBaseUri(): string
+    public function getPantheonApiBaseUri(): string
     {
         $config = $this->request->getConfig();
 

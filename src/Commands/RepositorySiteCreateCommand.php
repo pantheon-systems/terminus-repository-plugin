@@ -139,13 +139,10 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     /**
      * Get ICR upstream based on the upstream passed as argument.
      */
-    protected function getIcrUpstream(string $upstream): Upstream {
+    public function getIcrUpstream(string $upstream_id): Upstream {
         $user = $this->session()->getUser();
 
         $upstream = $user->getUpstreams()->get($upstream_id);
-        if (!$upstream) {
-            throw new TerminusException('Upstream {upstream} not found.', compact('upstream'));
-        }
         $framework = $upstream->get('framework');
         return $this->getIcrUpstreamFromFramework($framework, $user);
     }
