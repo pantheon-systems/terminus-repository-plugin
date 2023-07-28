@@ -139,7 +139,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     /**
      * Get ICR upstream based on the upstream passed as argument.
      */
-    public function getIcrUpstream(string $upstream_id): Upstream {
+    public function getIcrUpstream(string $upstream_id): Upstream
+    {
         $user = $this->session()->getUser();
 
         $upstream = $user->getUpstreams()->get($upstream_id);
@@ -150,7 +151,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     /**
      * Get ICR upstream based on the framework.
      */
-    protected function getIcrUpstreamFromFramework(string $framework, $user): Upstream {
+    protected function getIcrUpstreamFromFramework(string $framework, $user): Upstream
+    {
         switch ($framework) {
             case 'drupal8':
                 return $user->getUpstreams()->get('drupal-icr');
