@@ -21,6 +21,8 @@ jobs:
         run: composer install
       - name: Validate Code
         run: composer lint
+      - name: Coding Standards
+        run: composer cs
   phpcompatibility:
     runs-on: ubuntu-latest
     name: PHP Compatibility
@@ -66,4 +68,4 @@ jobs:
         with:
           terminus-version: ${{ env.TERMINUS_VERSION }}
       - name: Run tests
-        run: echo "Nothing to do"
+        run: composer unit
