@@ -50,13 +50,10 @@ class RepositorySiteCreateCommandTest extends TestCase
         return $upstreams;
     }
 
-    public function testGetIcrUpstream()
+    public function testGetIcrUpstreamNotFound()
     {
         $user = Mockery::mock(User::class);
-        
-
         $upstreams = $this->setUpstreams($user);
-        $upstream_id = 'invalid_upstream_id';
 
         $user->shouldReceive('getUpstreams')->andReturn($upstreams);
         $session = Mockery::mock(Session::class);
@@ -65,29 +62,39 @@ class RepositorySiteCreateCommandTest extends TestCase
         $command->shouldReceive('session')->andReturn($session);
 
         // Test that an exception is thrown when the upstream is not found.
+        $upstream_id = 'invalid_upstream_id';
         $this->expectException(TerminusException::class);
         $this->expectExceptionMessage("Could not find an upstream identified by $upstream_id.");
         $command->getIcrUpstream($upstream_id);
 
-        // Test when framework is not supported.
+                //$command->shouldReceive('getIcrUpstreamFromFramework')->with($framework, $user)->andReturn($upstream);
 
-        /*$invalid_upstream_id = 'invalid_upstream_id';
-        $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage("Could not find an upstream identified by $invalid_upstream_id.");
-        $command->getIcrUpstream($invalid_upstream_id);*/
 
-        //         $framework = 'drupal';
-        /*$upstream = Mockery::mock(Upstream::class);
+    }
+
+    public function testGetIcrUpstreamFrameworkNotSupported()
+    {
+        // Setup.
+        $user = Mockery::mock(User::class);
+        $session = Mockery::mock(Session::class);
+        $session->shouldReceive('getUser')->andReturn($user);
+        $command = Mockery::mock(RepositorySiteCreateCommand::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $command->shouldReceive('session')->andReturn($session);
+
+        $upstreams = $this->setUpstreams($user);
+        $upstream_id = 'upstream_with_invalid_framework';
+        $framework = 'drupal';
+        $upstream = Mockery::mock(Upstream::class);
         // Add properties to the mocked upstream.
         $upstream->id = $upstream_id;
         $upstream->organization_id = null;
         $upstream->framework = $framework;
-        
+        $upstreams->add($upstream);
+        $user->shouldReceive('getUpstreams')->andReturn($upstreams);
 
-                //$command->shouldReceive('getIcrUpstreamFromFramework')->with($framework, $user)->andReturn($upstream);
-
-
-        $upstreams->add($upstream);*/
-
+        // Test, Assert.
+        $this->expectException(TerminusException::class);
+        $this->expectExceptionMessage("Framework $framework not supported.");
+        $command->getIcrUpstream($upstream_id);
     }
 }
