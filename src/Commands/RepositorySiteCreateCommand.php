@@ -11,6 +11,7 @@ use Pantheon\TerminusRepository\VcsAuthApi\VcsAuthClientAwareTrait;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareTrait;
 use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
+use Pantheon\Terminus\Models\Upstream;
 
 /**
  * Create a new pantheon site using ICR
@@ -74,7 +75,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $user = $this->session()->getUser();
 
         // Locate upstream.
-        $upstream = $user->getUpstreams()->get($upstream_id);
+        $icr_upstream = $this->getIcrUpstream($upstream_id);
 
         // Locate organization.
         if (!is_null($org_id = $options['org'])) {
@@ -130,6 +131,37 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         // Deploy the upstream.
         if ($site = $this->getSiteById($site_create_workflow->get('waiting_for_task')->site_id)) {
             $this->log()->notice('Next: Deploying CMS...');
+            $this->processWorkflow($site->deployProduct($icr_upstream->id));
+            $this->log()->notice('Deployed CMS');
+        }
+    }
+
+    /**
+     * Get ICR upstream based on the upstream passed as argument.
+     */
+    public function getIcrUpstream(string $upstream_id): Upstream
+    {
+        $user = $this->session()->getUser();
+
+        $upstream = $user->getUpstreams()->get($upstream_id);
+        $framework = $upstream->get('framework');
+        return $this->getIcrUpstreamFromFramework($framework, $user);
+    }
+
+    /**
+     * Get ICR upstream based on the framework.
+     */
+    protected function getIcrUpstreamFromFramework(string $framework, $user): Upstream
+    {
+        switch ($framework) {
+            case 'drupal8':
+                return $user->getUpstreams()->get('drupal-icr');
+            case 'wordpress':
+                return $user->getUpstreams()->get('wordpress-icr');
+            case 'wordpress-network':
+                return $user->getUpstreams()->get('wordpress-multisite-icr');
+            default:
+                throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
     }
 }

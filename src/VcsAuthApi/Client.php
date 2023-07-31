@@ -47,14 +47,14 @@ class Client implements ConfigAwareInterface
      */
     public function authorize(string $vcs_organization): array
     {
-      $request_options = [
-        'json' => [
-            'vcs_organization' => $vcs_organization,
-        ],
-        'method' => 'POST',
-      ];
+        $request_options = [
+            'json' => [
+                'vcs_organization' => $vcs_organization,
+            ],
+            'method' => 'POST',
+        ];
 
-      return $this->requestApi('authorize', $request_options);
+        return $this->requestApi('authorize', $request_options);
     }
 
     /**
@@ -133,7 +133,7 @@ class Client implements ConfigAwareInterface
      *
      * @return string
      */
-    protected function getPantheonApiBaseUri(): string
+    public function getPantheonApiBaseUri(): string
     {
         $config = $this->request->getConfig();
 
@@ -152,18 +152,16 @@ class Client implements ConfigAwareInterface
      */
     protected function getHost(): string
     {
-      $config = $this->request->getConfig();
+        $config = $this->request->getConfig();
 
-      if ($config->get('papi_host')) {
-          return $config->get('papi_host');
-      }
+        if ($config->get('papi_host')) {
+            return $config->get('papi_host');
+        }
 
-      if ($config->get('host') && false !== strpos($config->get('host'), 'hermes.sandbox-')) {
-          return str_replace('hermes', 'pantheonapi', $config->get('host'));
-      }
+        if ($config->get('host') && false !== strpos($config->get('host'), 'hermes.sandbox-')) {
+            return str_replace('hermes', 'pantheonapi', $config->get('host'));
+        }
 
-      return 'api.pantheon.io';
-  }
-
-
+        return 'api.pantheon.io';
+    }
 }

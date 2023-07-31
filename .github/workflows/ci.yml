@@ -21,6 +21,8 @@ jobs:
         run: composer install
       - name: Validate Code
         run: composer lint
+      - name: Coding Standards
+        run: composer cs
   phpcompatibility:
     runs-on: ubuntu-latest
     name: PHP Compatibility
@@ -59,11 +61,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: full-workspace
-      - name: Install jq
-        run: brew install jq
-      - name: Install Terminus
-        uses: pantheon-systems/terminus-github-actions@main
-        with:
-          terminus-version: ${{ env.TERMINUS_VERSION }}
+      - name: Full Composer Install
+        run: composer install
       - name: Run tests
-        run: echo "Nothing to do"
+        run: composer unit
