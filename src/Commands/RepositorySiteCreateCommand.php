@@ -48,7 +48,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'org' => null,
         'region' => null,
         'vcs' => 'github',
-    ]) {
+    ])
+    {
 
         if ($this->sites()->nameIsTaken($site_name)) {
             throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
