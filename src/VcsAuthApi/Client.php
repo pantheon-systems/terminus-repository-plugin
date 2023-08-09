@@ -58,18 +58,27 @@ class Client implements ConfigAwareInterface
     /**
      * Process site details until we get the expected status or an error.
      */
-    public function processSiteDetails(string $site_id): array
+    public function processSiteDetails(string $site_id, $timeout = 0): array
     {
-        // @todo Increase?
-        $polling_limit = 30;
-        $polling_count = 0;
+        $start = time();
         do {
             $polling_count++;
             $data = $this->getSiteDetails($site_id);
             $data = (array) $data['data'][0];
             // Multiply by 1000 to convert milliseconds to microseconds.
             usleep($this->pollingInterval * 1000);
-        } while ($data['is_active'] != true && $polling_count < $polling_limit);
+            $current = time();
+            $elapsed = $current - $start;
+            if ($timeout > 0 && $elapsed > $timeout) {
+                throw new TerminusException(
+                    'Timeout while waiting for site details. Elapsed: %elapsed. Timeout: %timeout',
+                    [
+                        '%elapsed' => $elapsed,
+                        '%timeout' => $timeout,
+                    ]
+                );
+            }
+        } while ($data['is_active'] != true);
 
         return $data;
     }

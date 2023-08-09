@@ -22,8 +22,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     use SiteAwareTrait;
     use WorkflowProcessingTrait;
 
-    const AUTH_COMPLETE_STATUS = 'auth_complete';
-
     /**
      * Creates a new site.
      *
@@ -51,12 +49,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'region' => null,
         'vcs' => 'github',
     ]) {
-
-        // @todo Delete these debug lines.
-        $this->log()->notice("Site name: $site_name");
-        $this->log()->notice("Label: $label");
-        $this->log()->notice("Upstream ID: $upstream_id");
-        $this->log()->debug("Options: " . print_r($options, true));
 
         if ($this->sites()->nameIsTaken($site_name)) {
             throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
@@ -90,7 +82,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $site_create_workflow = $this->sites()->create($workflow_options);
         $this->processWorkflow($site_create_workflow);
         $site_uuid = $site_create_workflow->get('waiting_for_task')->site_id;
-        $this->log()->notice("New Site Id: " . $site_uuid);
 
         $workflow_data = [
             'user_uuid' => $user->id,
@@ -115,12 +106,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $data = (array) $data['data'][0];
 
         // Confirm required data is present
-        if (!isset($data['workflow_uuid'])) {
-            throw new TerminusException(
-                'Error authorizing with vcs service: {error_message}',
-                ['error_message' => 'No workflow_uuid returned']
-            );
-        }
         if (!isset($data['site_details_id'])) {
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
@@ -141,7 +126,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             ->openUrl($auth_url);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
-        $site_details = $this->getVcsAuthClient()->processSiteDetails($data['site_details_id'], self::AUTH_COMPLETE_STATUS);
+        $site_details = $this->getVcsAuthClient()->processSiteDetails($data['site_details_id'], 300);
         $this->log()->debug("Workflow: " . print_r($workflow, true));
 
         if (!$site_details['is_active']) {
