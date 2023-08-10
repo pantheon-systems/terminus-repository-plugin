@@ -108,16 +108,11 @@ class Client implements ConfigAwareInterface
     public function requestApi(string $path, array $options = []): array
     {
         $url = sprintf('%s/%s', $this->getPantheonApiBaseUri(), $path);
-        // @todo This is temporary until mapping from pantheonapi to vcs-service is properly done.
-        $base_url = "https://sandbox-vcs.svc.pantheon.io/v1";
-        $url = sprintf('%s/%s', $base_url, $path);
         $options = array_merge(
             [
                 'headers' => [
                     'Accept' => 'application/json',
                     'Authorization' => $this->request->session()->get('session'),
-                    // @todo this is temporary until pantheonapi figures out the communication.
-                    'Proxy-Authorization' => sprintf("Bearer %s", getenv("PROXY_AUTHORIZATION")),
                 ],
                 // Do not convert http errors to exceptions
                 'http_errors' => false,
