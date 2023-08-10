@@ -120,7 +120,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        $auth_url = sprintf('"%s%s"', $this->getAuthUrl($options['vcs']), $data['vcs_auth_links']->{$options['vcs']});
+        $auth_url = sprintf('"%s"', $data['vcs_auth_links']->{$options['vcs']});
 
         $this->getContainer()
             ->get(LocalMachineHelper::class)
