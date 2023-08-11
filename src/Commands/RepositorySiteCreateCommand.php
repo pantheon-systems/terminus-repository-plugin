@@ -137,10 +137,10 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        $this->log()->notice("Authorization complete. Creating site...");
+        $this->log()->notice("Authorization complete.");
 
         // Deploy the upstream.
-        if ($site = $this->getSiteById($site_create_workflow->get('waiting_for_task')->site_id)) {
+        if ($site = $this->getSiteById($site_uuid)) {
             $this->log()->notice('Next: Deploying CMS...');
             $this->processWorkflow($site->deployProduct($icr_upstream->id));
             $this->log()->notice('Deployed CMS');
