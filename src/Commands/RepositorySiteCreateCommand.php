@@ -148,23 +148,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     }
 
     /**
-     * Get VCS auth base url.
-     */
-    public function getAuthUrl($vcs): string
-    {
-        switch ($vcs) {
-            case 'github':
-                return 'https://github.com/login/oauth/authorize';
-            case 'bitbucket':
-                return 'https://bitbucket.org';
-            case 'gitlab':
-                return 'https://gitlab.com';
-            default:
-                throw new TerminusException('Invalid VCS: {vcs}', compact('vcs'));
-        }
-    }
-
-    /**
      * Get site name as expected by ICR site creation API.
      */
     public function getSiteName(Upstream $upstream): string
