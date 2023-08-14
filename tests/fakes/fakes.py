@@ -11,45 +11,55 @@ port = os.environ.get('TERMINUS_PAPI_PORT', 8443)
 
 workflows = {}
 
-@app.route('/vcs-auth/v1/authorize', methods=['POST'])
-def authorizeVcs():
+@app.route('/vcs/v1/workflow', methods=['POST'])
+def postWorkflow():
     if not request.is_json:
         return "Request body must be json", 400
-    if not request.json.get("vcs_organization"):
-        return "vcs_organization is required", 400
 
+    site_id = str(uuid.uuid4())
     workflow_id = str(uuid.uuid4())
 
     data = {
-        "timestamp": time.time(),
-        "vcs_auth_link": "https://github.com",
-        "vcs_type": "github",
+        "site_details_id": site_id,
         "workflow_id": workflow_id,
-        "site_uuid": "FAKE_SITE_UUID",
-        "status": "auth_pending",
+        "timestamp": time.time(),
+        "vcs_auth_links": {
+            "github": "https://github.com/login/oauth/authorize?client_id=1234567890",
+            "bitbucket": "",
+            "gitlab": "",
+        }
     }
-    workflows[workflow_id] = data
+    workflows[site_id] = data
+    return {
+        "data": [
+            data
+        ]
+    }
 
-    return data
-
-@app.route('/vcs-auth/v1/workflows/<id>', methods=['GET'])
-def getWorkflow(id):
+@app.route('/vcs/v1/site-details/<id>', methods=['GET'])
+def getSiteDetails(id):
 
     if id not in workflows:
-        return "Workflow not found", 404
+        return "Site not found", 404
 
-    data = workflows[id]
+    workflow = workflows[id]
 
     current_timestamp = time.time()
 
+    data = {
+        "site_details_id": id,
+        "is_active": False,
+    }
+
     # Polling this will return auth_pending for 15 seconds and then will change to auth_complete
-    if current_timestamp - data["timestamp"] > 15:
-        data["status"] = "auth_complete"
-        workflows[id] = data
+    if current_timestamp - workflow["timestamp"] > 15:
+        data["is_active"] = "true"
 
-    # @todo Should this randomly fail?
-
-    return data
+    return {
+        "data": [
+            data
+        ]
+    }
 
 if __name__ == '__main__':
    app.run(host='0.0.0.0', port=port)
