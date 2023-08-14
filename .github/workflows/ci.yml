@@ -36,17 +36,21 @@ jobs:
           paths: ${{ github.workspace }}/src
   functional:
     runs-on: ${{ matrix.operating-system }}
-    name: Functional testing matrix - PHP ${{ matrix.php-versions }} on ${{ matrix.operating-system }}
+    name: Functional testing matrix - PHP ${{ matrix.php-versions.value }} on ${{ matrix.operating-system }}
     if: ${{ github.repository_owner == 'pantheon-systems' }}
     strategy:
       matrix:
         operating-system: [ 'macos-latest' ]
-        php-versions: [ '7.4', '8.1' ]
+        php-versions:
+          - name: 74
+            value: 7.4
+          - name: 81
+            value: 8.1
       max-parallel: 3
     env:
       TERMINUS_ALLOW_UNSUPPORTED_NEWER_PHP: true
       TERMINUS_VERSION: 3.1.1
-      TERMINUS_SITE_NAME: test-icr-${{ github.run_id }}
+      TERMINUS_SITE_NAME: test-icr-${{ github.run_id }}-${{ matrix.php-versions.name }}
     needs:
       - checkout_build
       - phpcompatibility
@@ -54,7 +58,7 @@ jobs:
       - name: Setup PHP with PECL extension
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php-versions }}
+          php-version: ${{ matrix.php-versions.value }}
           extensions: gd, mbstring, zip, ssh2-1.3.1, pcov
           coverage: pcov
           ini-values: error_reporting=E_ALL
