@@ -74,7 +74,7 @@ jobs:
         run: terminus self:plugin:install .
       - name: Run functional tests
         env:
-          ORG_ID: ${{ env.ORG_ID }}
+          ORG_ID: ${{ secrets.ORG_ID }}
         run: chmod +x ./tests/functional.sh && ./tests/functional.sh
       - name: Cleanup
         if: always()
