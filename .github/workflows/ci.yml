@@ -75,7 +75,7 @@ jobs:
       - name: Run functional tests
         env:
           ORG_ID: ${{ env.ORG_ID }}
-        run: ./tests/functional.sh
+        run: chmod +x ./tests/functional.sh && ./tests/functional.sh
       - name: Cleanup
         if: always()
         run: terminus site:delete -y ${{ env.TERMINUS_SITE_NAME }}
