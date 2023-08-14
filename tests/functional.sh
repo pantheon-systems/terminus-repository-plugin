@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Setup fakes.
-cd tests/fakes && pip install -r requirements.txt && ./fakes.py &
+cd tests/fakes && pip3 install -r requirements.txt && chmod +x ./fakes.py && ./fakes.py &
 source .envrc.dist
 
 # Create site.
