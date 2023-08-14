@@ -127,7 +127,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             ->openUrl($auth_url);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
-        $site_details = $this->getVcsAuthClient()->processSiteDetails($data['site_details_id'], 300);
+        $site_details = $this->getVcsAuthClient()->processSiteDetails($data['site_details_id'], 600);
         $this->log()->debug("Workflow: " . print_r($workflow, true));
 
         if (!$site_details['is_active']) {
