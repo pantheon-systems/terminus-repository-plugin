@@ -46,7 +46,7 @@ jobs:
     env:
       TERMINUS_ALLOW_UNSUPPORTED_NEWER_PHP: true
       TERMINUS_VERSION: 3.1.1
-      TERMINUS_SITE_NAME: test-icr- ${{ github.run_id	 }}
+      TERMINUS_SITE_NAME: test-icr-${{ github.run_id }}
     needs:
       - checkout_build
       - phpcompatibility
