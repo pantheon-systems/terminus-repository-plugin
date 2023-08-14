@@ -71,10 +71,10 @@ class Client implements ConfigAwareInterface
             $elapsed = $current - $start;
             if ($timeout > 0 && $elapsed > $timeout) {
                 throw new TerminusException(
-                    'Timeout while waiting for site details. Elapsed: %elapsed. Timeout: %timeout',
+                    'Timeout while waiting for site details. Elapsed: {elapsed}. Timeout: {timeout}.',
                     [
-                        '%elapsed' => $elapsed,
-                        '%timeout' => $timeout,
+                        'elapsed' => $elapsed,
+                        'timeout' => $timeout,
                     ]
                 );
             }
@@ -132,10 +132,10 @@ class Client implements ConfigAwareInterface
             throw new TerminusException($data->error);
         }
         throw new TerminusException(
-            'An error ocurred. Code: %code. Message: %reason',
+            'An error ocurred. Code: {code}. Message: {reason}',
             [
-                '%code' => $statusCode,
-                '%reason' => $result->getStatusCodeReason(),
+                'code' => $statusCode,
+                'reason' => $result->getStatusCodeReason(),
             ]
         );
     }
