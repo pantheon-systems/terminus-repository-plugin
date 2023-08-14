@@ -89,7 +89,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'org_uuid' => $workflow_options['organization_id'] ?? $user->id,
             'site_uuid' => $site_uuid,
             'site_name' => $site_name,
-            'site_type' => $this->getSiteName($icr_upstream),
+            'site_type' => $this->getSiteType($icr_upstream),
         ];
 
         try {
@@ -148,9 +148,9 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     }
 
     /**
-     * Get site name as expected by ICR site creation API.
+     * Get site type as expected by ICR site creation API.
      */
-    public function getSiteName(Upstream $upstream): string
+    public function getSiteType(Upstream $upstream): string
     {
         $upstream_name = $upstream->get('machine_name');
         if (strpos($upstream_name, 'wordpress') !== false) {
