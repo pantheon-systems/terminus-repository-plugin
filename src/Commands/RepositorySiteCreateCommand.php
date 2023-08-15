@@ -22,8 +22,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     use SiteAwareTrait;
     use WorkflowProcessingTrait;
 
-    const AUTH_COMPLETE_STATUS = 'auth_complete';
-
     /**
      * Creates a new site.
      *
@@ -35,26 +33,23 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      * @param string $site_name Site name
      * @param string $label Site label
      * @param string $upstream_id Upstream name or UUID
-     * @param string $vcs_organization Off-platform VCS provider organization
      * @option org Organization name, label, or ID
+     * @option vcs VCS Type (e.g. github,gitlab,bitbucket)
      * @option region Specify the service region where the site should be
      *   created. See documentation for valid regions.
      *
-     * @usage <site> <label> <upstream> <vcs_organization> Creates a new site named <site>, human-readably labeled <label>, using code from <upstream>, owned by <vcs_organization> at GitHub.
-     * @usage <site> <label> <upstream> <vcs_organization> --org=<org> Creates a new site named <site>, human-readably labeled <label>, using code from <upstream>, owned by <vcs_organization> at GitHub, associated with Pantheon <organization>.
+     * @usage <site> <label> <upstream> Creates a new site named <site>, human-readably labeled <label>, using code from <upstream>.
+     * @usage <site> <label> <upstream> --org=<org> Creates a new site named <site>, human-readably labeled <label>, using code from <upstream>, associated with Pantheon <organization>.
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
 
-    public function create($site_name, $label, $upstream_id, $vcs_organization, $options = ['org' => null, 'region' => null,])
+    public function create($site_name, $label, $upstream_id, $options = [
+        'org' => null,
+        'region' => null,
+        'vcs' => 'github',
+    ])
     {
-
-        // @todo Delete these debug lines.
-        $this->log()->notice("Site name: $site_name");
-        $this->log()->notice("Label: $label");
-        $this->log()->notice("Upstream ID: $upstream_id");
-        $this->log()->notice("VCS Organization: $vcs_organization");
-        $this->log()->debug("Options: " . print_r($options, true));
 
         if ($this->sites()->nameIsTaken($site_name)) {
             throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
@@ -88,12 +83,17 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $site_create_workflow = $this->sites()->create($workflow_options);
         $this->processWorkflow($site_create_workflow);
         $site_uuid = $site_create_workflow->get('waiting_for_task')->site_id;
-        $this->log()->notice("New Site Id: " . $site_uuid);
 
-        // @todo Create workflow on go-vcs-service and send site_uuid.
+        $workflow_data = [
+            'user_uuid' => $user->id,
+            'org_uuid' => $workflow_options['organization_id'] ?? $user->id,
+            'site_uuid' => $site_uuid,
+            'site_name' => $site_name,
+            'site_type' => $this->getSiteType($icr_upstream),
+        ];
 
         try {
-            $data = $this->getVcsAuthClient()->authorize($vcs_organization);
+            $data = $this->getVcsAuthClient()->createWorkflow($workflow_data);
         } catch (\Throwable $t) {
             throw new TerminusException(
                 'Error authorizing with vcs_auth service: {error_message}',
@@ -103,37 +103,60 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $this->log()->debug("Data: " . print_r($data, true));
 
-        // @todo Update to get stuff from the right place as per the payload.
+        // Normalize data.
+        $data = (array) $data['data'][0];
+
         // Confirm required data is present
-        if (!isset($data['workflow_id'])) {
+        if (!isset($data['site_details_id'])) {
             throw new TerminusException(
-                'Error authorizing with vcs_auth service: {error_message}',
-                ['error_message' => 'No workflow_id returned']
+                'Error authorizing with vcs service: {error_message}',
+                ['error_message' => 'No site_details_id returned']
             );
         }
-        if (!isset($data['vcs_auth_link'])) {
+        if (!isset($data['vcs_auth_links']->{$options['vcs']})) {
             throw new TerminusException(
-                'Error authorizing with vcs_auth service: {error_message}',
+                'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No vcs_auth_link returned']
             );
         }
 
+        $auth_url = sprintf('"%s"', $data['vcs_auth_links']->{$options['vcs']});
+
         $this->getContainer()
             ->get(LocalMachineHelper::class)
-            ->openUrl($data['vcs_auth_link']);
+            ->openUrl($auth_url);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
-        $workflow = $this->getVcsAuthClient()->processWorkflow($data['workflow_id'], self::AUTH_COMPLETE_STATUS);
+        $site_details = $this->getVcsAuthClient()->processSiteDetails($data['site_details_id'], 600);
         $this->log()->debug("Workflow: " . print_r($workflow, true));
 
-        $this->log()->notice("Authorization complete. Creating site...");
+        if (!$site_details['is_active']) {
+            throw new TerminusException(
+                'Error authorizing with vcs service: {error_message}',
+                ['error_message' => 'Site is not yet active']
+            );
+        }
+
+        $this->log()->notice("Authorization complete.");
 
         // Deploy the upstream.
-        if ($site = $this->getSiteById($site_create_workflow->get('waiting_for_task')->site_id)) {
+        if ($site = $this->getSiteById($site_uuid)) {
             $this->log()->notice('Next: Deploying CMS...');
             $this->processWorkflow($site->deployProduct($icr_upstream->id));
             $this->log()->notice('Deployed CMS');
         }
+    }
+
+    /**
+     * Get site type as expected by ICR site creation API.
+     */
+    public function getSiteType(Upstream $upstream): string
+    {
+        $upstream_name = $upstream->get('machine_name');
+        if (strpos($upstream_name, 'wordpress') !== false) {
+            return 'cms-wordpress';
+        }
+        return 'cms-drupal';
     }
 
     /**

@@ -37,50 +37,62 @@ class Client implements ConfigAwareInterface
     }
 
     /**
-     * go-vcs-auth/authorize - returns (at least) workflow_id and vcs_auth_url
+     * Create site workflow.
      *
-     * @param string $vcs_organization
+     * @param awway $workflow_data
      *
      * @return array
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
-    public function authorize(string $vcs_organization): array
+    public function createWorkflow(array $workflow_data): array
     {
         $request_options = [
-            'json' => [
-                'vcs_organization' => $vcs_organization,
-            ],
+            'json' => $workflow_data,
             'method' => 'POST',
         ];
 
-        return $this->requestApi('authorize', $request_options);
+        return $this->requestApi('workflow', $request_options);
     }
 
     /**
-     * Process workflow until we get the expected status or an error.
+     * Process site details until we get the expected status or an error.
      */
-    public function processWorkflow(string $workflow_id, string $expected_status): array
+    public function processSiteDetails(string $site_id, $timeout = 0): array
     {
+        $start = time();
         do {
-            $workflow = $this->getWorkflow($workflow_id);
+            $polling_count++;
+            $data = $this->getSiteDetails($site_id);
+            $data = (array) $data['data'][0];
             // Multiply by 1000 to convert milliseconds to microseconds.
             usleep($this->pollingInterval * 1000);
-        } while ($workflow['status'] != $expected_status && $workflow['status'] != 'failed');
+            $current = time();
+            $elapsed = $current - $start;
+            if ($timeout > 0 && $elapsed > $timeout) {
+                throw new TerminusException(
+                    'Timeout while waiting for site details. Elapsed: {elapsed}. Timeout: {timeout}.',
+                    [
+                        'elapsed' => $elapsed,
+                        'timeout' => $timeout,
+                    ]
+                );
+            }
+        } while ($data['is_active'] != true);
 
-        return $workflow;
+        return $data;
     }
 
     /**
-     * Get workflow by id.
+     * Get site details by id.
      */
-    public function getWorkflow(string $workflow_id): array
+    public function getSiteDetails(string $site_id): array
     {
         $request_options = [
             'method' => 'GET',
         ];
 
-        return $this->requestApi('workflows/' . $workflow_id, $request_options);
+        return $this->requestApi('site-details/' . $site_id, $request_options);
     }
 
     /**
@@ -120,10 +132,10 @@ class Client implements ConfigAwareInterface
             throw new TerminusException($data->error);
         }
         throw new TerminusException(
-            'An error ocurred. Code: %code. Message: %reason',
+            'An error ocurred. Code: {code}. Message: {reason}',
             [
-                '%code' => $statusCode,
-                '%reason' => $result->getStatusCodeReason(),
+                'code' => $statusCode,
+                'reason' => $result->getStatusCodeReason(),
             ]
         );
     }
@@ -138,7 +150,7 @@ class Client implements ConfigAwareInterface
         $config = $this->request->getConfig();
 
         return sprintf(
-            '%s://%s:%s/vcs-auth/v1',
+            '%s://%s:%s/vcs/v1',
             $config->get('papi_protocol') ?? $config->get('protocol') ?? 'https',
             $this->getHost(),
             $config->get('papi_port') ?? $config->get('port') ?? '443'
