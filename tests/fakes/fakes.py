@@ -16,11 +16,17 @@ def postWorkflow():
     if not request.is_json:
         return "Request body must be json", 400
 
-    site_id = str(uuid.uuid4())
+    request_data = request.get_json()
+
+    if not "site_uuid" in request_data:
+        return "Site uuid is required", 400
+
+    site_uuid = request_data["site_uuid"]
+
     workflow_id = str(uuid.uuid4())
 
     data = {
-        "site_details_id": site_id,
+        "site_details_id": site_uuid,
         "workflow_id": workflow_id,
         "timestamp": time.time(),
         "vcs_auth_links": {
@@ -29,7 +35,7 @@ def postWorkflow():
             "gitlab_oauth": "",
         }
     }
-    workflows[site_id] = data
+    workflows[site_uuid] = data
     return {
         "data": [
             data
