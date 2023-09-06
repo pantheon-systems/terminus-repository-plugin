@@ -24,9 +24,9 @@ def postWorkflow():
         "workflow_id": workflow_id,
         "timestamp": time.time(),
         "vcs_auth_links": {
-            "github": "https://github.com/login/oauth/authorize?client_id=1234567890",
-            "bitbucket": "",
-            "gitlab": "",
+            "github_oauth": "https://github.com/login/oauth/authorize?client_id=1234567890",
+            "bitbucket_oauth": "",
+            "gitlab_oauth": "",
         }
     }
     workflows[site_id] = data
