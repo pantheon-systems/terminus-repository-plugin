@@ -145,12 +145,50 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $this->log()->notice("Authorization complete.");
 
-        // Deploy the upstream.
+        // @todo Create repository: LOPS-1619
+
+
+
+        // Deploy product.
         if ($site = $this->getSiteById($site_uuid)) {
-            $this->log()->notice('Next: Deploying CMS...');
+            $this->log()->notice('Next: Deploying Pantheon resources...');
             $this->processWorkflow($site->deployProduct($icr_upstream->id));
-            $this->log()->notice('Deployed CMS');
+            $this->log()->notice('Deployed resources');
         }
+
+        // Push initial code to Github.
+        $this->log()->notice('Next: Pushing initial code to Github...');
+
+        // @todo Do not hardcode this.
+        $target_repo_url = "https://github.com/kporras07/icr-test.git";
+        $upstream_repo_url = $this->getUpstreamRepository($upstream_id);
+
+        $installation_id = $site_details['vcs_installation_id'];
+        if (!$installation_id) {
+            throw new TerminusException(
+                'Error authorizing with vcs service: {error_message}',
+                ['error_message' => 'No vcs_installation_id returned']
+            );
+        }
+
+        // Call pantheonapi vcs/v1/repo-initialize.
+        $repo_initialize_data = [
+            'site_id' => $site_uuid,
+            'target_repo_url' => $target_repo_url,
+            'upstream_repo_url' => $upstream_repo_url,
+            'installation_id' => $installation_id,
+        ];
+
+        try {
+            $data = $this->getVcsAuthClient()->repoInitialize($workflow_data);
+        } catch (\Throwable $t) {
+            throw new TerminusException(
+                'Error initializing repo with contents: {error_message}',
+                ['error_message' => $t->getMessage()]
+            );
+        }
+
+
     }
 
     /**
@@ -192,5 +230,12 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
+    }
+
+    public function getUpstreamRepository(string $upstream_id): string
+    {
+        $user = $this->session()->getUser();
+        $upstream = $user->getUpstreams()->get($upstream_id);
+        return $upstream->get('url')
     }
 }

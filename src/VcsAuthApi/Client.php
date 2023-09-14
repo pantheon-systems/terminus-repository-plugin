@@ -39,7 +39,7 @@ class Client implements ConfigAwareInterface
     /**
      * Create site workflow.
      *
-     * @param awway $workflow_data
+     * @param array $workflow_data
      *
      * @return array
      *
@@ -93,6 +93,25 @@ class Client implements ConfigAwareInterface
         ];
 
         return $this->requestApi('site-details/' . $site_id, $request_options);
+    }
+
+    /**
+     * Initialize repo.
+     *
+     * @param array $repo_initialize_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function repoInitialize(array $repo_initialize_data): array
+    {
+        $request_options = [
+            'json' => $workflow_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('repo-initialize', $request_options);
     }
 
     /**
