@@ -113,21 +113,27 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                 ['error_message' => 'No site_details_id returned']
             );
         }
-        if (!isset($data['vcs_auth_links']->{$options['vcs']})) {
+        $auth_url = null;
+        // Iterate over the two possible auth options for the given VCS.
+        foreach (['app', 'oauth'] as $auth_option) {
+            if (isset($data['vcs_auth_links']->{sprintf("%s_%s", $options['vcs'], $auth_option)})) {
+                $auth_url = sprintf('"%s"', $data['vcs_auth_links']->{sprintf("%s_%s", $options['vcs'], $auth_option)});
+                break;
+            }
+        }
+        if (is_null($auth_url)) {
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No vcs_auth_link returned']
             );
         }
 
-        $auth_url = sprintf('"%s"', $data['vcs_auth_links']->{$options['vcs']});
-
         $this->getContainer()
             ->get(LocalMachineHelper::class)
             ->openUrl($auth_url);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
-        $site_details = $this->getVcsAuthClient()->processSiteDetails($data['site_details_id'], 600);
+        $site_details = $this->getVcsAuthClient()->processSiteDetails($site_uuid, 600);
         $this->log()->debug("Workflow: " . print_r($workflow, true));
 
         if (!$site_details['is_active']) {
