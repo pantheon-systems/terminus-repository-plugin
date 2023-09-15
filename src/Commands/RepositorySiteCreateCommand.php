@@ -188,9 +188,14 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        // @todo Improve messaging here.
+        if (empty($data['success'])) {
+            throw new TerminusException(
+                'Error initializing repo with contents: {error_message}',
+                ['error_message' => $data['message']]
+            );
+        }
 
-        $this->log()->notice("Done!");
+        $this->log()->notice(sprintf("Site was correctly created, you can access your repo at %s", $target_repo_url));
     }
 
     /**
