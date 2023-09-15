@@ -176,11 +176,12 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'site_id' => $site_uuid,
             'target_repo_url' => $target_repo_url,
             'upstream_repo_url' => $upstream_repo_url,
-            'installation_id' => $installation_id,
+            'installation_id' => (string) $installation_id,
         ];
 
         try {
-            $data = $this->getVcsAuthClient()->repoInitialize($workflow_data);
+            // @todo here!!!!
+            $data = $this->getVcsAuthClient()->repoInitialize($repo_initialize_data);
         } catch (\Throwable $t) {
             throw new TerminusException(
                 'Error initializing repo with contents: {error_message}',
@@ -236,6 +237,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     {
         $user = $this->session()->getUser();
         $upstream = $user->getUpstreams()->get($upstream_id);
-        return $upstream->get('url')
+        return $upstream->get('repository_url');
     }
 }

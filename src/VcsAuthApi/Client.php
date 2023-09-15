@@ -107,11 +107,11 @@ class Client implements ConfigAwareInterface
     public function repoInitialize(array $repo_initialize_data): array
     {
         $request_options = [
-            'json' => $workflow_data,
+            'json' => $repo_initialize_data,
             'method' => 'POST',
         ];
 
-        return $this->requestApi('repo-initialize', $request_options);
+        return $this->requestApi('repo-initialize', $request_options, "X-Pantheon-Session");
     }
 
     /**
@@ -124,14 +124,14 @@ class Client implements ConfigAwareInterface
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
-    public function requestApi(string $path, array $options = []): array
+    public function requestApi(string $path, array $options = [], string $auth_header_name = "Authorization"): array
     {
         $url = sprintf('%s/%s', $this->getPantheonApiBaseUri(), $path);
         $options = array_merge(
             [
                 'headers' => [
                     'Accept' => 'application/json',
-                    'Authorization' => $this->request->session()->get('session'),
+                    $auth_header_name => $this->request->session()->get('session'),
                 ],
                 // Do not convert http errors to exceptions
                 'http_errors' => false,
