@@ -55,6 +55,7 @@ def getSiteDetails(id):
     data = {
         "site_details_id": id,
         "is_active": False,
+        "vcs_installation_id": "1",
     }
 
     # Polling this will return auth_pending for 15 seconds and then will change to auth_complete
@@ -66,6 +67,13 @@ def getSiteDetails(id):
             data
         ]
     }
+
+@app.route('/vcs/v1/repo-initialize', methods=['POST'])
+def postRepoInitialize():
+    if not request.is_json:
+        return "Request body must be json", 400
+
+    return ""
 
 if __name__ == '__main__':
    app.run(host='0.0.0.0', port=port)
