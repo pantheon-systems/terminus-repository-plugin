@@ -180,18 +180,11 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         ];
 
         try {
-            $data = $this->getVcsAuthClient()->repoInitialize($repo_initialize_data);
+            $this->getVcsAuthClient()->repoInitialize($repo_initialize_data);
         } catch (\Throwable $t) {
             throw new TerminusException(
                 'Error initializing repo with contents: {error_message}',
                 ['error_message' => $t->getMessage()]
-            );
-        }
-
-        if (empty($data['success'])) {
-            throw new TerminusException(
-                'Error initializing repo with contents: {error_message}',
-                ['error_message' => $data['message']]
             );
         }
 
