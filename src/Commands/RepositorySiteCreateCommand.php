@@ -6,8 +6,8 @@ use Pantheon\Terminus\Commands\TerminusCommand;
 use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Helpers\LocalMachineHelper;
-use Pantheon\TerminusRepository\VcsAuthApi\Client;
-use Pantheon\TerminusRepository\VcsAuthApi\VcsAuthClientAwareTrait;
+use Pantheon\TerminusRepository\VcsApi\Client;
+use Pantheon\TerminusRepository\VcsApi\VcsClientAwareTrait;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareTrait;
 use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
@@ -18,7 +18,7 @@ use Pantheon\Terminus\Models\Upstream;
  */
 class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwareInterface, SiteAwareInterface
 {
-    use VcsAuthClientAwareTrait;
+    use VcsClientAwareTrait;
     use SiteAwareTrait;
     use WorkflowProcessingTrait;
 
@@ -93,7 +93,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         ];
 
         try {
-            $data = $this->getVcsAuthClient()->createWorkflow($workflow_data);
+            $data = $this->getVcsClient()->createWorkflow($workflow_data);
         } catch (\Throwable $t) {
             throw new TerminusException(
                 'Error authorizing with vcs_auth service: {error_message}',
@@ -133,7 +133,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             ->openUrl($auth_url);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
-        $site_details = $this->getVcsAuthClient()->processSiteDetails($site_uuid, 600);
+        $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
         $this->log()->debug("Workflow: " . print_r($workflow, true));
 
         if (!$site_details['is_active']) {
@@ -146,8 +146,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $this->log()->notice("Authorization complete.");
 
         // @todo Create repository: LOPS-1619
-
-
 
         // Deploy product.
         if ($site = $this->getSiteById($site_uuid)) {
@@ -180,7 +178,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         ];
 
         try {
-            $this->getVcsAuthClient()->repoInitialize($repo_initialize_data);
+            $this->getVcsClient()->repoInitialize($repo_initialize_data);
         } catch (\Throwable $t) {
             throw new TerminusException(
                 'Error initializing repo with contents: {error_message}',

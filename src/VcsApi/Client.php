@@ -1,6 +1,6 @@
 <?php
 
-namespace Pantheon\TerminusRepository\VcsAuthApi;
+namespace Pantheon\TerminusRepository\VcsApi;
 
 use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Request\Request;
