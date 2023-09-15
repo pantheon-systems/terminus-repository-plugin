@@ -180,7 +180,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         ];
 
         try {
-            // @todo here!!!!
             $data = $this->getVcsAuthClient()->repoInitialize($repo_initialize_data);
         } catch (\Throwable $t) {
             throw new TerminusException(
@@ -189,7 +188,9 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
+        // @todo Improve messaging here.
 
+        $this->log()->notice("Done!");
     }
 
     /**

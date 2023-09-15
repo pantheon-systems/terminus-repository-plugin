@@ -11,6 +11,7 @@ use Pantheon\Terminus\Request\RequestAwareTrait;
  */
 trait VcsAuthClientAwareTrait
 {
+    // @todo RENAME!!!
     use RequestAwareTrait;
 
     /**
