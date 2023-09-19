@@ -1,6 +1,6 @@
 <?php
 
-namespace Pantheon\TerminusRepository\VcsAuthApi;
+namespace Pantheon\TerminusRepository\VcsApi;
 
 use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Request\Request;
@@ -39,7 +39,7 @@ class Client implements ConfigAwareInterface
     /**
      * Create site workflow.
      *
-     * @param awway $workflow_data
+     * @param array $workflow_data
      *
      * @return array
      *
@@ -96,6 +96,25 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Initialize repo.
+     *
+     * @param array $repo_initialize_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function repoInitialize(array $repo_initialize_data): array
+    {
+        $request_options = [
+            'json' => $repo_initialize_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('repo-initialize', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Performs the request to API path.
      *
      * @param string $path
@@ -105,14 +124,14 @@ class Client implements ConfigAwareInterface
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
-    public function requestApi(string $path, array $options = []): array
+    public function requestApi(string $path, array $options = [], string $auth_header_name = "Authorization"): array
     {
         $url = sprintf('%s/%s', $this->getPantheonApiBaseUri(), $path);
         $options = array_merge(
             [
                 'headers' => [
                     'Accept' => 'application/json',
-                    'Authorization' => $this->request->session()->get('session'),
+                    $auth_header_name => $this->request->session()->get('session'),
                 ],
                 // Do not convert http errors to exceptions
                 'http_errors' => false,

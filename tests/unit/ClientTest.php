@@ -3,7 +3,7 @@
 namespace Pantheon\TerminusRepository\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Pantheon\TerminusRepository\VcsAuthApi\Client;
+use Pantheon\TerminusRepository\VcsApi\Client;
 use Pantheon\Terminus\Request\Request;
 use Consolidation\Config\Config;
 
