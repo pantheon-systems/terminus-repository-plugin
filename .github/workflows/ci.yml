@@ -82,4 +82,4 @@ jobs:
         run: chmod +x ./tests/functional.sh && ./tests/functional.sh
       - name: Cleanup
         if: always()
-        run: terminus site:delete -y ${{ env.TERMINUS_SITE_NAME }}
+        run: terminus site:delete -y ${{ env.TERMINUS_SITE_NAME }} || true
