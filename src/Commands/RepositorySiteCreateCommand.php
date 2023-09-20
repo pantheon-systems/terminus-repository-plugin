@@ -140,7 +140,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
         try {
-            $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 10);
+            $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
         } catch (TerminusException $e) {
             $this->cleanup($site_uuid, $vcs_site_id);
             throw $e;
