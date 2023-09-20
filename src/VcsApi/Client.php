@@ -84,6 +84,18 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Cleanup site details.
+     */
+    public function cleanupSiteDetails(string $site_details_id): void
+    {
+        $request_options = [
+            'method' => 'DELETE',
+        ];
+
+        $this->requestApi(sprintf('site-details/%s', $site_details_id), $request_options);
+    }
+
+    /**
      * Get site details by id.
      */
     public function getSiteDetails(string $site_id): array

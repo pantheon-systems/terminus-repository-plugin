@@ -95,12 +95,13 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         try {
             $data = $this->getVcsClient()->createWorkflow($workflow_data);
         } catch (\Throwable $t) {
-            $this->deleteSite($site_uuid);
+            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error authorizing with vcs_auth service: {error_message}',
                 ['error_message' => $t->getMessage()]
             );
         }
+
 
         $this->log()->debug("Data: " . print_r($data, true));
 
@@ -109,12 +110,14 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         // Confirm required data is present
         if (!isset($data['site_details_id'])) {
-            $this->deleteSite($site_uuid);
+            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No site_details_id returned']
             );
         }
+        $vcs_site_id = $data['site_details_id'];
+
         $auth_url = null;
         // Iterate over the two possible auth options for the given VCS.
         foreach (['app', 'oauth'] as $auth_option) {
@@ -124,7 +127,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             }
         }
         if (is_null($auth_url)) {
-            $this->deleteSite($site_uuid);
+            $this->cleanup($site_uuid, $vcs_site_id);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No vcs_auth_link returned']
@@ -137,15 +140,15 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
         try {
-            $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
+            $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 10);
         } catch (TerminusException $e) {
-            $this->deleteSite($site_uuid);
+            $this->cleanup($site_uuid, $vcs_site_id);
             throw $e;
         }
         $this->log()->debug("Workflow: " . print_r($workflow, true));
 
         if (!$site_details['is_active']) {
-            $this->deleteSite($site_uuid);
+            $this->cleanup($site_uuid, $vcs_site_id);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'Site is not yet active']
@@ -162,7 +165,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             try {
                 $this->processWorkflow($site->deployProduct($icr_upstream->id));
             } catch (TerminusException $e) {
-                $this->deleteSite($site_uuid);
+                $this->cleanup($site_uuid, $vcs_site_id);
                 throw $e;
             }
             $this->log()->notice('Deployed resources');
@@ -177,7 +180,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $installation_id = $site_details['vcs_installation_id'];
         if (!$installation_id) {
-            $this->deleteSite($site_uuid);
+            $this->cleanup($site_uuid, $vcs_site_id);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No vcs_installation_id returned']
@@ -195,7 +198,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         try {
             $this->getVcsClient()->repoInitialize($repo_initialize_data);
         } catch (\Throwable $t) {
-            $this->deleteSite($site_uuid);
+            $this->cleanup($site_uuid, $vcs_site_id);
             throw new TerminusException(
                 'Error initializing repo with contents: {error_message}',
                 ['error_message' => $t->getMessage()]
@@ -249,10 +252,10 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     /**
      * Delete site.
      */
-    protected function deleteSite(string $site_id)
+    protected function cleanup(string $site_uuid, string $vcs_site_id = null): void
     {
         $this->log()->notice("Cleaning up resources due to a previous failure...");
-        $site = $this->sites()->get($site_id);
+        $site = $this->sites()->get($site_uuid);
         $workflow = $site->delete();
 
         // We need to query the user workflows API to watch the delete_site workflow, since the site object won't exist anymore
@@ -260,7 +263,11 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $this->processWorkflow($workflow);
         $message = $workflow->getMessage();
-        $this->log()->notice($message, ['site' => $site_id]);
+        $this->log()->notice($message, ['site' => $site_uuid]);
+
+        if ($vcs_site_id) {
+            $this->getVcsClient()->cleanupSiteDetails($vcs_site_id);
+        }
     }
 
     public function getUpstreamRepository(string $upstream_id): string
