@@ -62,7 +62,6 @@ class Client implements ConfigAwareInterface
     {
         $start = time();
         do {
-            $polling_count++;
             $data = $this->getSiteDetails($site_id);
             $data = (array) $data['data'][0];
             // Multiply by 1000 to convert milliseconds to microseconds.
