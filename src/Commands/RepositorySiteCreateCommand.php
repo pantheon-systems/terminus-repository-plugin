@@ -165,7 +165,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $this->log()->debug("Data: " . print_r($data, true));
 
         // Normalize data.
-        $data = (array) $data['data'][0];
+        $data = (array) $data['data'];
 
         if (!isset($data['repo_url'])) {
             throw new TerminusException(
