@@ -148,7 +148,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $repo_create_data = [
             'site_uuid' => $site_uuid,
             'label' => $label,
-            'skip_create' => FALSE,
+            'skip_create' => false,
         ];
         try {
             $data = $this->getVcsClient()->repoCreate($repo_create_data);
