@@ -76,7 +76,7 @@ def postRepoInitialize():
     return ""
 
 @app.route('/vcs/v1/repository', methods=['POST'])
-def postRepoInitialize():
+def postRepoCreate():
     if not request.is_json:
         return "Request body must be json", 400
 
