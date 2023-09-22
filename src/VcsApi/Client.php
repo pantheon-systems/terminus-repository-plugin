@@ -111,7 +111,7 @@ class Client implements ConfigAwareInterface
             'method' => 'POST',
         ];
 
-        return $this->requestApi('repository', $request_options);
+        return $this->requestApi('repository', $request_options, "X-Pantheon-Session");
     }
 
     /**
