@@ -145,7 +145,32 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $this->log()->notice("Authorization complete.");
 
-        // @todo Create repository: LOPS-1619
+        $repo_create_data = [
+            'site_uuid' => $site_uuid,
+            'label' => $label,
+            'skip_create' => FALSE,
+        ];
+        try {
+            $data = $this->getVcsClient()->repoCreate($repo_create_data);
+        } catch (\Throwable $t) {
+            throw new TerminusException(
+                'Error creating repo: {error_message}',
+                ['error_message' => $t->getMessage()]
+            );
+        }
+        $this->log()->debug("Data: " . print_r($data, true));
+
+        // Normalize data.
+        $data = (array) $data['data'][0];
+
+        if (!isset($data['repo_url'])) {
+            throw new TerminusException(
+                'Error creating repo: {error_message}',
+                ['error_message' => 'No repo_url returned']
+            );
+        }
+        $target_repo_url = $data['repo_url'];
+
 
         // Deploy product.
         if ($site = $this->getSiteById($site_uuid)) {
@@ -157,8 +182,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         // Push initial code to Github.
         $this->log()->notice('Next: Pushing initial code to Github...');
 
-        // @todo Do not hardcode this.
-        $target_repo_url = "https://github.com/kporras07/icr-test.git";
         $upstream_repo_url = $this->getUpstreamRepository($upstream_id);
 
         $installation_id = $site_details['installation_id'];

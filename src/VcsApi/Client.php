@@ -96,6 +96,25 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Create repo.
+     *
+     * @param array $repo_create_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function repoCreate(array $repo_create_data): array
+    {
+        $request_options = [
+            'json' => $repo_create_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('repository', $request_options);
+    }
+
+    /**
      * Initialize repo.
      *
      * @param array $repo_initialize_data
