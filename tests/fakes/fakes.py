@@ -55,7 +55,7 @@ def getSiteDetails(id):
     data = {
         "site_details_id": id,
         "is_active": False,
-        "vcs_installation_id": "1",
+        "installation_id": "1",
     }
 
     # Polling this will return auth_pending for 15 seconds and then will change to auth_complete

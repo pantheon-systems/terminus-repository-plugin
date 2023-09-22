@@ -52,7 +52,7 @@ class Client implements ConfigAwareInterface
             'method' => 'POST',
         ];
 
-        return $this->requestApi('workflow', $request_options);
+        return $this->requestApi('workflow', $request_options, "X-Pantheon-Session");
     }
 
     /**

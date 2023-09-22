@@ -178,12 +178,12 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $target_repo_url = "https://github.com/kporras07/icr-test.git";
         $upstream_repo_url = $this->getUpstreamRepository($upstream_id);
 
-        $installation_id = $site_details['vcs_installation_id'];
+        $installation_id = $site_details['installation_id'];
         if (!$installation_id) {
             $this->cleanup($site_uuid, $vcs_site_id);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
-                ['error_message' => 'No vcs_installation_id returned']
+                ['error_message' => 'No installation_id returned']
             );
         }
 
