@@ -128,6 +128,10 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
+        $this->log()->notice("Opening authorization link in browser...");
+        $this->log()->notice("If your browser does not open, please go to the following URL:");
+        $this->log()->notice($auth_url);
+
         $this->getContainer()
             ->get(LocalMachineHelper::class)
             ->openUrl($auth_url);
