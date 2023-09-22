@@ -151,7 +151,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $repo_create_data = [
             'site_uuid' => $site_uuid,
-            'label' => $label,
+            'label' => $site_name,
             'skip_create' => false,
         ];
         try {
