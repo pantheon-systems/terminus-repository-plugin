@@ -62,7 +62,6 @@ class Client implements ConfigAwareInterface
     {
         $start = time();
         do {
-            $polling_count++;
             $data = $this->getSiteDetails($site_id);
             $data = (array) $data['data'][0];
             // Multiply by 1000 to convert milliseconds to microseconds.
@@ -93,6 +92,25 @@ class Client implements ConfigAwareInterface
         ];
 
         return $this->requestApi('site-details/' . $site_id, $request_options);
+    }
+
+    /**
+     * Create repo.
+     *
+     * @param array $repo_create_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function repoCreate(array $repo_create_data): array
+    {
+        $request_options = [
+            'json' => $repo_create_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('repository', $request_options, "X-Pantheon-Session");
     }
 
     /**
