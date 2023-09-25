@@ -221,11 +221,16 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      */
     public function getSiteType(Upstream $upstream): string
     {
-        $upstream_name = $upstream->get('machine_name');
-        if (strpos($upstream_name, 'wordpress') !== false) {
-            return 'cms-wordpress';
+        $framework = $upstream->get('framework');
+        switch ($framework) {
+            case 'drupal8':
+                return 'cms-drupal';
+            case 'wordpress':
+            case 'wordpress-network':
+                return 'cms-wordpress';
+            default:
+                throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
-        return 'cms-drupal';
     }
 
     /**
