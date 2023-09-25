@@ -128,13 +128,17 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
+        $this->log()->notice("Opening authorization link in browser...");
+        $this->log()->notice("If your browser does not open, please go to the following URL:");
+        $this->log()->notice($auth_url);
+
         $this->getContainer()
             ->get(LocalMachineHelper::class)
             ->openUrl($auth_url);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
         $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
-        $this->log()->debug("Workflow: " . print_r($workflow, true));
+        $this->log()->debug("Site details: " . print_r($site_details, true));
 
         if (!$site_details['is_active']) {
             throw new TerminusException(
@@ -145,7 +149,32 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $this->log()->notice("Authorization complete.");
 
-        // @todo Create repository: LOPS-1619
+        $repo_create_data = [
+            'site_uuid' => $site_uuid,
+            'label' => $site_name,
+            'skip_create' => false,
+        ];
+        try {
+            $data = $this->getVcsClient()->repoCreate($repo_create_data);
+        } catch (\Throwable $t) {
+            throw new TerminusException(
+                'Error creating repo: {error_message}',
+                ['error_message' => $t->getMessage()]
+            );
+        }
+        $this->log()->debug("Data: " . print_r($data, true));
+
+        // Normalize data.
+        $data = (array) $data['data'];
+
+        if (!isset($data['repo_url'])) {
+            throw new TerminusException(
+                'Error creating repo: {error_message}',
+                ['error_message' => 'No repo_url returned']
+            );
+        }
+        $target_repo_url = $data['repo_url'];
+
 
         // Deploy product.
         if ($site = $this->getSiteById($site_uuid)) {
@@ -157,8 +186,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         // Push initial code to Github.
         $this->log()->notice('Next: Pushing initial code to Github...');
 
-        // @todo Do not hardcode this.
-        $target_repo_url = "https://github.com/kporras07/icr-test.git";
         $upstream_repo_url = $this->getUpstreamRepository($upstream_id);
 
         $installation_id = $site_details['installation_id'];

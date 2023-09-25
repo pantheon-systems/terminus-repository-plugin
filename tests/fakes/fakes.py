@@ -75,5 +75,16 @@ def postRepoInitialize():
 
     return ""
 
+@app.route('/vcs/v1/repository', methods=['POST'])
+def postRepoCreate():
+    if not request.is_json:
+        return "Request body must be json", 400
+
+    return {
+        "data": {
+            "repo_url": "https://github.com/test/test.git"
+        }
+    }
+
 if __name__ == '__main__':
    app.run(host='0.0.0.0', port=port)
