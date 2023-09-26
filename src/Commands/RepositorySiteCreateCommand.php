@@ -96,7 +96,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             $data = $this->getVcsClient()->createWorkflow($workflow_data);
         } catch (\Throwable $t) {
             throw new TerminusException(
-                'Error authorizing with vcs_auth service: {error_message}',
+                'Error authorizing with vcs service: {error_message}',
                 ['error_message' => $t->getMessage()]
             );
         }
