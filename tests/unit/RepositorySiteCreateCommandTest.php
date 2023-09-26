@@ -127,15 +127,21 @@ class RepositorySiteCreateCommandTest extends TestCase
     public function testGetSiteType()
     {
         $upstream = Mockery::mock(Upstream::class);
-        $upstream->shouldReceive('get')->with('machine_name')->andReturn('wordpress_icr');
+        $upstream->shouldReceive('get')->with('framework')->andReturn('wordpress');
         $command = new RepositorySiteCreateCommand();
 
         $result = $command->getSiteType($upstream);
         $this->assertSame('cms-wordpress', $result);
 
+        // Test that the method returns 'cms-wordpress' for a wordpress-network upstream.
+        $upstream = Mockery::mock(Upstream::class);
+        $upstream->shouldReceive('get')->with('framework')->andReturn('wordpress-network');
+        $result = $command->getSiteType($upstream);
+        $this->assertSame('cms-wordpress', $result);
+
         // Test that the method returns 'cms-drupal' for a Drupal upstream.
         $upstream = Mockery::mock(Upstream::class);
-        $upstream->shouldReceive('get')->with('machine_name')->andReturn('drupal_icr');
+        $upstream->shouldReceive('get')->with('framework')->andReturn('drupal8');
         $result = $command->getSiteType($upstream);
         $this->assertSame('cms-drupal', $result);
     }
