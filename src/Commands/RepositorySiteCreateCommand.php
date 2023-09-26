@@ -7,11 +7,14 @@ use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Helpers\LocalMachineHelper;
 use Pantheon\TerminusRepository\VcsApi\Client;
+use Pantheon\TerminusRepository\VcsApi\Installation;
 use Pantheon\TerminusRepository\VcsApi\VcsClientAwareTrait;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareTrait;
 use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
 use Pantheon\Terminus\Models\Upstream;
+use Symfony\Component\Console\Helper\QuestionHelper;
+use Symfony\Component\Console\Question\ChoiceQuestion;
 
 /**
  * Create a new pantheon site using ICR
@@ -128,14 +131,54 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        $this->log()->notice("Opening authorization link in browser...");
-        $this->log()->notice("If your browser does not open, please go to the following URL:");
-        $this->log()->notice($auth_url);
+        $installations = [];
+        $installation_id = 'new';
 
-        $this->getContainer()
-            ->get(LocalMachineHelper::class)
-            ->openUrl($auth_url);
+        if (!empty($data['existing_installations'])) {
+            $new_installation = new Installation(
+                'New Installation',
+                '',
+                '',
+            );
+            $installations['new'] = $new_installation;
+            foreach ($data['existing_installations'] as $installation) {
+                if ($installation->installation_type !== 'cms-site') {
+                    continue;
+                }
+                $installation_obj = new Installation(
+                    $installation->installation_id,
+                    $installation->vendor,
+                    $installation->login_name
+                );
+                $installations[$installation->installation_id] = $installation_obj;
+            }
+        }
 
+        if ($installations) {
+            $helper = new QuestionHelper();
+            $question = new ChoiceQuestion(
+                'Please select your desired installation (default to new one):',
+                $installations,
+                'new'
+            );
+            $installation_id = $helper->ask($this->input(), $this->output(), $question);
+            
+            if ($installation_id !== 'NEW') {
+                // @todo POST v1/authorize.
+            }
+        }
+
+        if ($installation_id === 'NEW') {
+            $this->log()->notice("Opening authorization link in browser...");
+            $this->log()->notice("If your browser does not open, please go to the following URL:");
+            $this->log()->notice($auth_url);
+
+            $this->getContainer()
+                ->get(LocalMachineHelper::class)
+                ->openUrl($auth_url);
+        }
+
+        // @todo maybe this should also go in the previous if?
         $this->log()->notice("Waiting for authorization to complete in browser...");
         $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
         $this->log()->debug("Site details: " . print_r($site_details, true));
