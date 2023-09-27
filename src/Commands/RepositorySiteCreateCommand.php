@@ -38,6 +38,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      * @param string $upstream_id Upstream name or UUID
      * @option org Organization name, label, or ID
      * @option vcs VCS Type (e.g. github,gitlab,bitbucket)
+     * @option installation_id Installation ID (e.g. 123456)
+     *   If not specified, the user will be prompted to select an installation when there are existing installations.
      * @option region Specify the service region where the site should be
      *   created. See documentation for valid regions.
      *
@@ -51,6 +53,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'org' => null,
         'region' => null,
         'vcs' => 'github',
+        'installation_id' => null,
     ])
     {
 
@@ -160,14 +163,19 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         }
 
         if ($installations) {
-            $helper = new QuestionHelper();
-            $question = new ChoiceQuestion(
-                'Please select your desired installation (default to new one):',
-                $installations,
-                'new'
-            );
-            $installation_id = $helper->ask($this->input(), $this->output(), $question);
-            
+            // If a valid option was provided, use it, otherwise, prompt the user.
+            if (isset($installations[$options['installation_id']])) {
+                $installation_id = $options['installation_id'];
+            } else {
+                $helper = new QuestionHelper();
+                $question = new ChoiceQuestion(
+                    'Please select your desired installation (default to new one):',
+                    $installations,
+                    'new'
+                );
+                $installation_id = $helper->ask($this->input(), $this->output(), $question);
+            }
+
             if ($installation_id !== 'new') {
                 $authorize_data = [
                     'site_uuid' => $site_uuid,
