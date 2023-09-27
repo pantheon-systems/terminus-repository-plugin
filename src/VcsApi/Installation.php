@@ -2,7 +2,8 @@
 
 namespace Pantheon\TerminusRepository\VcsApi;
 
-class Installation {
+class Installation
+{
 
     /**
      * @var string
@@ -67,5 +68,4 @@ class Installation {
     {
         return sprintf("%s: %s (%s)", $this->getVendor(), $this->getLoginName(), $this->getInstallationId());
     }
-
 }
