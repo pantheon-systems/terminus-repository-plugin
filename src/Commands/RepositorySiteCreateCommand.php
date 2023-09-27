@@ -137,6 +137,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $installations = [];
         $installation_id = 'new';
+        $site_details = null;
 
         if (!empty($data['existing_installations'])) {
             $new_installation = new Installation(
@@ -167,12 +168,27 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
             $installation_id = $helper->ask($this->input(), $this->output(), $question);
             
-            if ($installation_id !== 'NEW') {
-                // @todo POST v1/authorize.
+            if ($installation_id !== 'new') {
+                $authorize_data = [
+                    'site_uuid' => $site_uuid,
+                    'user_uuid' => $user->id,
+                    'installation_id' => (int) $installation_id,
+                ];
+                try {
+                    $data = $this->getVcsClient()->authorize($authorize_data);
+                    if (!$data['success']) {
+                        throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
+                    }
+                    $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
+                    $site_details = (array) $site_details['data'][0];
+                } catch (TerminusException $e) {
+                    $this->cleanup($site_uuid);
+                    throw $e;
+                }
             }
         }
 
-        if ($installation_id === 'NEW') {
+        if ($installation_id === 'new') {
             $this->log()->notice("Opening authorization link in browser...");
             $this->log()->notice("If your browser does not open, please go to the following URL:");
             $this->log()->notice($auth_url);
@@ -180,17 +196,15 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             $this->getContainer()
                 ->get(LocalMachineHelper::class)
                 ->openUrl($auth_url);
-        }
 
-        // @todo maybe this should also go in the previous if?
-        $this->log()->notice("Waiting for authorization to complete in browser...");
-        try {
-            $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
-        } catch (TerminusException $e) {
-            $this->cleanup($site_uuid);
-            throw $e;
+            $this->log()->notice("Waiting for authorization to complete in browser...");
+            try {
+                $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
+            } catch (TerminusException $e) {
+                $this->cleanup($site_uuid);
+                throw $e;
+            }
         }
-        $this->log()->debug("Workflow: " . print_r($workflow, true));
 
         if (!$site_details['is_active']) {
             $this->cleanup($site_uuid);
@@ -200,7 +214,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        $this->log()->notice("Authorization complete.");
+        $this->log()->notice("Creating repository...");
 
         $repo_create_data = [
             'site_uuid' => $site_uuid,
