@@ -287,9 +287,15 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     protected function cleanup(string $site_uuid, bool $cleanup_vcs = true): void
     {
         $this->log()->notice("Cleaning up resources due to a previous failure...");
+        $exception = null;
 
         if ($cleanup_vcs) {
-            $this->getVcsClient()->cleanupSiteDetails($site_uuid);
+            try {
+                $this->getVcsClient()->cleanupSiteDetails($site_uuid);
+            } catch (TerminusException $e) {
+                $exception = $e;
+                $this->log()->notice("Error cleaning up vcs service: {error_message}", ['error_message' => $e->getMessage()]);
+            }
         }
 
         $site = $this->sites()->get($site_uuid);
@@ -301,6 +307,10 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $this->processWorkflow($workflow);
         $message = $workflow->getMessage();
         $this->log()->notice($message, ['site' => $site_uuid]);
+
+        if ($exception) {
+            throw $exception;
+        }
     }
 
     public function getUpstreamRepository(string $upstream_id): string
