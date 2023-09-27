@@ -81,5 +81,5 @@ jobs:
           ORG_ID: ${{ secrets.ORG_ID }}
         run: chmod +x ./tests/functional.sh && ./tests/functional.sh
       - name: Cleanup
-        if: always()
+        if: success()
         run: terminus site:delete -y ${{ env.TERMINUS_SITE_NAME }}

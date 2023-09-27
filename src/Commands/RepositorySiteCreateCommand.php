@@ -95,6 +95,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         try {
             $data = $this->getVcsClient()->createWorkflow($workflow_data);
         } catch (\Throwable $t) {
+            $this->cleanup($site_uuid, false);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => $t->getMessage()]
@@ -108,11 +109,13 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         // Confirm required data is present
         if (!isset($data['site_details_id'])) {
+            $this->cleanup($site_uuid, false);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No site_details_id returned']
             );
         }
+
         $auth_url = null;
         // Iterate over the two possible auth options for the given VCS.
         foreach (['app', 'oauth'] as $auth_option) {
@@ -122,6 +125,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             }
         }
         if (is_null($auth_url)) {
+            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No vcs_auth_link returned']
@@ -137,10 +141,16 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             ->openUrl($auth_url);
 
         $this->log()->notice("Waiting for authorization to complete in browser...");
-        $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
-        $this->log()->debug("Site details: " . print_r($site_details, true));
+        try {
+            $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
+        } catch (TerminusException $e) {
+            $this->cleanup($site_uuid);
+            throw $e;
+        }
+        $this->log()->debug("Workflow: " . print_r($workflow, true));
 
         if (!$site_details['is_active']) {
+            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'Site is not yet active']
@@ -157,6 +167,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         try {
             $data = $this->getVcsClient()->repoCreate($repo_create_data);
         } catch (\Throwable $t) {
+            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error creating repo: {error_message}',
                 ['error_message' => $t->getMessage()]
@@ -168,6 +179,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $data = (array) $data['data'];
 
         if (!isset($data['repo_url'])) {
+            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error creating repo: {error_message}',
                 ['error_message' => 'No repo_url returned']
@@ -179,7 +191,12 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         // Deploy product.
         if ($site = $this->getSiteById($site_uuid)) {
             $this->log()->notice('Next: Deploying Pantheon resources...');
-            $this->processWorkflow($site->deployProduct($icr_upstream->id));
+            try {
+                $this->processWorkflow($site->deployProduct($icr_upstream->id));
+            } catch (TerminusException $e) {
+                $this->cleanup($site_uuid);
+                throw $e;
+            }
             $this->log()->notice('Deployed resources');
         }
 
@@ -190,6 +207,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $installation_id = $site_details['installation_id'];
         if (!$installation_id) {
+            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No installation_id returned']
@@ -207,6 +225,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         try {
             $this->getVcsClient()->repoInitialize($repo_initialize_data);
         } catch (\Throwable $t) {
+            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error initializing repo with contents: {error_message}',
                 ['error_message' => $t->getMessage()]
@@ -259,6 +278,38 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                 return $user->getUpstreams()->get('wordpress-multisite-icr');
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
+        }
+    }
+
+    /**
+     * Delete site.
+     */
+    protected function cleanup(string $site_uuid, bool $cleanup_vcs = true): void
+    {
+        $this->log()->notice("Cleaning up resources due to a previous failure...");
+        $exception = null;
+
+        if ($cleanup_vcs) {
+            try {
+                $this->getVcsClient()->cleanupSiteDetails($site_uuid);
+            } catch (TerminusException $e) {
+                $exception = $e;
+                $this->log()->notice("Error cleaning up vcs service: {error_message}", ['error_message' => $e->getMessage()]);
+            }
+        }
+
+        $site = $this->sites()->get($site_uuid);
+        $workflow = $site->delete();
+
+        // We need to query the user workflows API to watch the delete_site workflow, since the site object won't exist anymore
+        $workflow->setOwnerObject($this->session()->getUser());
+
+        $this->processWorkflow($workflow);
+        $message = $workflow->getMessage();
+        $this->log()->notice($message, ['site' => $site_uuid]);
+
+        if ($exception) {
+            throw $exception;
         }
     }
 
