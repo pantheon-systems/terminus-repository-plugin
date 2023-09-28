@@ -56,6 +56,25 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Call authorize endpoint.
+     *
+     * @param array $authorize_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function authorize(array $authorize_data): array
+    {
+        $request_options = [
+            'json' => $authorize_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('authorize', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Process site details until we get the expected status or an error.
      */
     public function processSiteDetails(string $site_id, $timeout = 0): array

@@ -7,11 +7,14 @@ use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Helpers\LocalMachineHelper;
 use Pantheon\TerminusRepository\VcsApi\Client;
+use Pantheon\TerminusRepository\VcsApi\Installation;
 use Pantheon\TerminusRepository\VcsApi\VcsClientAwareTrait;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareTrait;
 use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
 use Pantheon\Terminus\Models\Upstream;
+use Symfony\Component\Console\Helper\QuestionHelper;
+use Symfony\Component\Console\Question\ChoiceQuestion;
 
 /**
  * Create a new pantheon site using ICR
@@ -35,6 +38,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      * @param string $upstream_id Upstream name or UUID
      * @option org Organization name, label, or ID
      * @option vcs VCS Type (e.g. github,gitlab,bitbucket)
+     * @option installation_id Installation ID (e.g. 123456)
+     *   If not specified, the user will be prompted to select an installation when there are existing installations.
      * @option region Specify the service region where the site should be
      *   created. See documentation for valid regions.
      *
@@ -48,6 +53,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'org' => null,
         'region' => null,
         'vcs' => 'github',
+        'installation_id' => null,
     ])
     {
 
@@ -132,22 +138,81 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        $this->log()->notice("Opening authorization link in browser...");
-        $this->log()->notice("If your browser does not open, please go to the following URL:");
-        $this->log()->notice($auth_url);
+        $installations = [];
+        $installation_id = 'new';
+        $site_details = null;
 
-        $this->getContainer()
-            ->get(LocalMachineHelper::class)
-            ->openUrl($auth_url);
-
-        $this->log()->notice("Waiting for authorization to complete in browser...");
-        try {
-            $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
-        } catch (TerminusException $e) {
-            $this->cleanup($site_uuid);
-            throw $e;
+        if (!empty($data['existing_installations'])) {
+            $new_installation = new Installation(
+                'New Installation',
+                '',
+                '',
+            );
+            $installations['new'] = $new_installation;
+            foreach ($data['existing_installations'] as $installation) {
+                if ($installation->installation_type !== 'cms-site') {
+                    continue;
+                }
+                $installation_obj = new Installation(
+                    $installation->installation_id,
+                    $installation->vendor,
+                    $installation->login_name
+                );
+                $installations[$installation->installation_id] = $installation_obj;
+            }
         }
-        $this->log()->debug("Workflow: " . print_r($workflow, true));
+
+        if ($installations) {
+            // If a valid option was provided, use it, otherwise, prompt the user.
+            if (isset($installations[$options['installation_id']])) {
+                $installation_id = $options['installation_id'];
+            } else {
+                $helper = new QuestionHelper();
+                $question = new ChoiceQuestion(
+                    'Please select your desired installation (default to new one):',
+                    $installations,
+                    'new'
+                );
+                $installation_id = $helper->ask($this->input(), $this->output(), $question);
+            }
+
+            if ($installation_id !== 'new') {
+                $authorize_data = [
+                    'site_uuid' => $site_uuid,
+                    'user_uuid' => $user->id,
+                    'installation_id' => (int) $installation_id,
+                ];
+                try {
+                    $data = $this->getVcsClient()->authorize($authorize_data);
+                    if (!$data['success']) {
+                        throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
+                    }
+                    $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
+                    $site_details = (array) $site_details['data'][0];
+                } catch (TerminusException $e) {
+                    $this->cleanup($site_uuid);
+                    throw $e;
+                }
+            }
+        }
+
+        if ($installation_id === 'new') {
+            $this->log()->notice("Opening authorization link in browser...");
+            $this->log()->notice("If your browser does not open, please go to the following URL:");
+            $this->log()->notice($auth_url);
+
+            $this->getContainer()
+                ->get(LocalMachineHelper::class)
+                ->openUrl($auth_url);
+
+            $this->log()->notice("Waiting for authorization to complete in browser...");
+            try {
+                $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
+            } catch (TerminusException $e) {
+                $this->cleanup($site_uuid);
+                throw $e;
+            }
+        }
 
         if (!$site_details['is_active']) {
             $this->cleanup($site_uuid);
@@ -157,7 +222,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        $this->log()->notice("Authorization complete.");
+        $this->log()->notice("Creating repository...");
 
         $repo_create_data = [
             'site_uuid' => $site_uuid,
