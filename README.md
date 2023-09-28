@@ -8,16 +8,22 @@ Adds command 'repository:site:create' to Terminus.
 
 ## Installation
 
-To install this plugin using Terminus 3:
-```
-terminus self:plugin:install terminus-repository-plugun
+[[TODO: change this when the feature goes live to the public]]
+
+Until the feature goes live to the public you will need to install this plugin from a cloned copy:
+
+```bash
+clone git@github.com:pantheon-systems/terminus-repository-plugin
+terminus self:plugin:install ./terminus-repository-plugin
 ```
 
-or clone from the repo and then:
 
+Once it goes live, to install this plugin using Terminus ^3.2+:
+
+```bash
+terminus self:plugin:install terminus-repository-plugin
 ```
-terminus self:plugin:install <path-to-plugin-folder>
-```
+
 
 ## Testing
 This example project includes four testing targets:
