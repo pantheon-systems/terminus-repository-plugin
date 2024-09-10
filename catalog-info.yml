@@ -1,0 +1,12 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: terminus-repository-plugin
+  description: Auto-generated catalog info for pantheon-systems/terminus-repository-plugin
+  annotations:
+    backstage.io/techdocs-ref: dir:docs/
+spec:
+  type: tool
+  lifecycle: experimental
+  owner: devx
