@@ -25,6 +25,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     use SiteAwareTrait;
     use WorkflowProcessingTrait;
 
+    protected $vcss = ['github', 'gitlab', 'bitbucket'];
+
     /**
      * Creates a new site.
      *
@@ -42,6 +44,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      *   If not specified, the user will be prompted to select an installation when there are existing installations.
      * @option region Specify the service region where the site should be
      *   created. See documentation for valid regions.
+     * @option visibility Visibility of the site (private or public)
      *
      * @usage <site> <label> <upstream> Creates a new site named <site>, human-readably labeled <label>, using code from <upstream>.
      * @usage <site> <label> <upstream> --org=<org> Creates a new site named <site>, human-readably labeled <label>, using code from <upstream>, associated with Pantheon <organization>.
@@ -54,8 +57,15 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'region' => null,
         'vcs' => 'github',
         'installation_id' => null,
+        'visibility' => 'private',
     ])
     {
+
+        // Validate VCS and convert to id.
+        if (!in_array($options['vcs'], $this->vcss)) {
+            throw new TerminusException('VCS {vcs} not supported.', ['vcs' => $options['vcs']]);
+        }
+        $vcs_id = array_search($options['vcs'], $this->vcss) + 1;
 
         if ($this->sites()->nameIsTaken($site_name)) {
             throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
@@ -228,8 +238,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'site_uuid' => $site_uuid,
             'label' => $site_name,
             'skip_create' => false,
-            // Assuming 1 = Github.
-            'vendor_id' => 1,
+            'is_private' => $options['visibility'] === 'private',
+            'vendor_id' => $vcs_id,
         ];
         try {
             $data = $this->getVcsClient()->repoCreate($repo_create_data);
