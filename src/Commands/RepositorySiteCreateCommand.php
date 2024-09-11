@@ -150,7 +150,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
             $installations['new'] = $new_installation;
             foreach ($data['existing_installations'] as $installation) {
-                if ($installation->installation_type !== 'cms-site') {
+                if ($installation->installation_type == 'front-end') {
                     continue;
                 }
                 $installation_obj = new Installation(
