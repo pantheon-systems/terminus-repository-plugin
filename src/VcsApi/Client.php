@@ -241,6 +241,9 @@ class Client implements ConfigAwareInterface
         if ($config->get('host') && false !== strpos($config->get('host'), 'hermes.sandbox-')) {
             return str_replace('hermes', 'pantheonapi', $config->get('host'));
         }
+        if (!$host && strpos($config->get('host'), 'sandbox-') !== false) {
+            return $config->get('host');
+        }
 
         return 'api.pantheon.io';
     }
