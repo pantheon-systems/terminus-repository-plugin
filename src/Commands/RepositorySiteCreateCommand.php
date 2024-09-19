@@ -197,6 +197,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                     'site_uuid' => $site_uuid,
                     'user_uuid' => $user->id,
                     'installation_id' => (int) $installation_id,
+                    'org_uuid' => $org->id,
                 ];
                 try {
                     $data = $this->getVcsClient()->authorize($authorize_data);
