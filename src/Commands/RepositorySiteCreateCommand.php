@@ -303,6 +303,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'target_repo_url' => $target_repo_url,
             'upstream_repo_url' => $upstream_repo_url,
             'installation_id' => (string) $installation_id,
+            'organization_id' => $org->id,
         ];
 
         try {
