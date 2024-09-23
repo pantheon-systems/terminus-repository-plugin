@@ -89,7 +89,7 @@ jobs:
         run: terminus self:plugin:install .
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
-        #if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
       - name: Run functional tests
         env:
           ORG_ID: ${{ secrets.ORG_ID }}
