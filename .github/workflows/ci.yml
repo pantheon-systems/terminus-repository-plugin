@@ -20,10 +20,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Save repo content as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: full-workspace
           path: ${{ github.workspace }}
+          include-hidden-files: true
       - name: Full Composer Install
         run: composer install
       - name: Validate Code
@@ -77,7 +78,7 @@ jobs:
         with:
           pantheon-machine-token: ${{ secrets.TERMINUS_TOKEN }}
       - name: Download repo content from artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: full-workspace
       - name: Full Composer Install
