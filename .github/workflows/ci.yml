@@ -2,6 +2,13 @@ name: Build and Tests
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
+        required: false
+        default: false
 
 jobs:
   checkout_build:
@@ -13,10 +20,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Save repo content as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: full-workspace
           path: ${{ github.workspace }}
+          include-hidden-files: true
       - name: Full Composer Install
         run: composer install
       - name: Validate Code
@@ -49,12 +57,15 @@ jobs:
       max-parallel: 3
     env:
       TERMINUS_ALLOW_UNSUPPORTED_NEWER_PHP: true
-      TERMINUS_VERSION: 3.1.1
+      TERMINUS_VERSION: 3.6.0
       TERMINUS_SITE_NAME: test-icr-${{ github.run_id }}-${{ matrix.php-versions.name }}
+      WORKSPACE: ${{ github.workspace }}
     needs:
       - checkout_build
       - phpcompatibility
     steps:
+      - name: Install coreutils for macOS
+        run: brew install coreutils
       - name: Setup PHP with PECL extension
         uses: shivammathur/setup-php@v2
         with:
@@ -67,7 +78,7 @@ jobs:
         with:
           pantheon-machine-token: ${{ secrets.TERMINUS_TOKEN }}
       - name: Download repo content from artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: full-workspace
       - name: Full Composer Install
@@ -76,6 +87,9 @@ jobs:
         run: composer unit
       - name: Install plugin
         run: terminus self:plugin:install .
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
       - name: Run functional tests
         env:
           ORG_ID: ${{ secrets.ORG_ID }}
