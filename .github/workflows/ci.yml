@@ -49,12 +49,14 @@ jobs:
       max-parallel: 3
     env:
       TERMINUS_ALLOW_UNSUPPORTED_NEWER_PHP: true
-      TERMINUS_VERSION: 3.1.1
+      TERMINUS_VERSION: 3.6.0
       TERMINUS_SITE_NAME: test-icr-${{ github.run_id }}-${{ matrix.php-versions.name }}
     needs:
       - checkout_build
       - phpcompatibility
     steps:
+      - name: Install coreutils for macOS
+        run: brew install coreutils
       - name: Setup PHP with PECL extension
         uses: shivammathur/setup-php@v2
         with:
