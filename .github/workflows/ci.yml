@@ -51,6 +51,7 @@ jobs:
       TERMINUS_ALLOW_UNSUPPORTED_NEWER_PHP: true
       TERMINUS_VERSION: 3.6.0
       TERMINUS_SITE_NAME: test-icr-${{ github.run_id }}-${{ matrix.php-versions.name }}
+      WORKSPACE: ${{ github.workspace }}
     needs:
       - checkout_build
       - phpcompatibility
