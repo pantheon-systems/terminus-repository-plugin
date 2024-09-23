@@ -1,3 +1,4 @@
 vendor
 tools
 .phpunit.result.cache
+/.idea
