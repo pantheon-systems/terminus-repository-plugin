@@ -318,6 +318,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         }
 
         $this->log()->notice(sprintf("Site was correctly created, you can access your repo at %s", $target_repo_url));
+        $this->log()->notice(sprintf("You can also access your site dashboard at %s", $site->dashboardUrl()));
     }
 
     /**
