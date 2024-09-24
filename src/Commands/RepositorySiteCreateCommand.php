@@ -38,7 +38,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      * @param string $site_name Site name
      * @param string $label Site label
      * @param string $upstream_id Upstream name or UUID
-     * @option org Organization name, label, or ID
+     * @option org Organization name, label, or ID (Required)
      * @option vcs VCS Type (e.g. github,gitlab,bitbucket)
      * @option installation_id Installation ID (e.g. 123456)
      *   If not specified, the user will be prompted to select an installation when there are existing installations.
@@ -60,6 +60,10 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'visibility' => 'private',
     ])
     {
+
+        if (empty($options['org'])) {
+            throw new TerminusException('Please specify an organization.');
+        }
 
         // Validate VCS and convert to id.
         if (!in_array($options['vcs'], $this->vcss)) {
@@ -89,10 +93,12 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $icr_upstream = $this->getIcrUpstream($upstream_id);
 
         // Locate organization.
-        if (!is_null($org_id = $options['org'])) {
-            $org = $user->getOrganizationMemberships()->get($org_id)->getOrganization();
-            $workflow_options['organization_id'] = $org->id;
+        $org_id = $options['org'];
+        $org = $user->getOrganizationMemberships()->get($org_id)->getOrganization();
+        if (!$org) {
+            throw new TerminusException('Organization {org_id} not found.', compact('org_id'));
         }
+        $workflow_options['organization_id'] = $org->id;
 
         // Create the site.
         $this->log()->notice('Creating a new site...');
@@ -191,6 +197,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                     'site_uuid' => $site_uuid,
                     'user_uuid' => $user->id,
                     'installation_id' => (int) $installation_id,
+                    'org_uuid' => $org->id,
                 ];
                 try {
                     $data = $this->getVcsClient()->authorize($authorize_data);
@@ -297,6 +304,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'target_repo_url' => $target_repo_url,
             'upstream_repo_url' => $upstream_repo_url,
             'installation_id' => (string) $installation_id,
+            'organization_id' => $org->id,
         ];
 
         try {
