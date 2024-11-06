@@ -41,7 +41,7 @@ As mentioned in our [documentation](https://docs.pantheon.io), support for Alpha
 
 ### Creating an eVCS Site
 
-Once the plugin has been installed, you will execute a command like this to create your first eVCS Site:
+Once the plugin has been installed, you should execute a command like this to create your first eVCS Site:
 
 ```
 terminus repository:site:create <site_name> <label> <upstream> --org="<your-organization>"
