@@ -10,7 +10,7 @@ Adds command 'repository:site:create' to Terminus.
 
 To install this plugin using Terminus 3:
 ```
-terminus self:plugin:install terminus-repository-plugun
+terminus self:plugin:install terminus-repository-plugin
 ```
 
 or clone from the repo and then:
