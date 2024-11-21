@@ -79,7 +79,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $workflow_options = [
             'label' => $label,
             'site_name' => $site_name,
-            'site_type' => 'evcs',
+            'has_external_vcs' => true,
         ];
         // If the user specified a region, then include it in the workflow
         // options. We'll allow the API to decide whether the region is valid.
