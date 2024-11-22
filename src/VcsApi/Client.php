@@ -158,6 +158,8 @@ class Client implements ConfigAwareInterface
         $request_options = [
             'json' => $repo_initialize_data,
             'method' => 'POST',
+            'timeout' => 240,
+            'read_timeout' => 240,
         ];
 
         return $this->requestApi('repo-initialize', $request_options, "X-Pantheon-Session");
