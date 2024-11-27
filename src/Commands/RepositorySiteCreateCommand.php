@@ -58,6 +58,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'vcs' => 'github',
         'installation_id' => null,
         'visibility' => 'private',
+        'create-repo' => true,
     ])
     {
 
@@ -245,7 +246,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $repo_create_data = [
             'site_uuid' => $site_uuid,
             'label' => $site_name,
-            'skip_create' => false,
+            'skip_create' => $options['create-repo'] === false,
             'is_private' => $options['visibility'] === 'private',
             'vendor_id' => $vcs_id,
         ];
@@ -300,24 +301,26 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
 
-        // Call pantheonapi vcs/v1/repo-initialize.
-        $repo_initialize_data = [
-            'site_id' => $site_uuid,
-            'target_repo_url' => $target_repo_url,
-            'upstream_repo_url' => $upstream_repo_url,
-            'upstream_repo_branch' => $upstream_repo_branch,
-            'installation_id' => (string) $installation_id,
-            'organization_id' => $org->id,
-        ];
+        if ($options['create-repo']) {
+            // Call pantheonapi vcs/v1/repo-initialize.
+            $repo_initialize_data = [
+                'site_id' => $site_uuid,
+                'target_repo_url' => $target_repo_url,
+                'upstream_repo_url' => $upstream_repo_url,
+                'upstream_repo_branch' => $upstream_repo_branch,
+                'installation_id' => (string) $installation_id,
+                'organization_id' => $org->id,
+            ];
 
-        try {
-            $this->getVcsClient()->repoInitialize($repo_initialize_data);
-        } catch (\Throwable $t) {
-            $this->cleanup($site_uuid);
-            throw new TerminusException(
-                'Error initializing repo with contents: {error_message}',
-                ['error_message' => $t->getMessage()]
-            );
+            try {
+                $this->getVcsClient()->repoInitialize($repo_initialize_data);
+            } catch (\Throwable $t) {
+                $this->cleanup($site_uuid);
+                throw new TerminusException(
+                    'Error initializing repo with contents: {error_message}',
+                    ['error_message' => $t->getMessage()]
+                );
+            }
         }
 
         $this->log()->notice(sprintf("Site was correctly created, you can access your repo at %s", $target_repo_url));
