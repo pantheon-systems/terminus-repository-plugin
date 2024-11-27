@@ -313,11 +313,11 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         try {
             $this->getVcsClient()->repoInitialize($repo_initialize_data);
         } catch (\Throwable $t) {
-            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error initializing repo with contents: {error_message}',
                 ['error_message' => $t->getMessage()]
             );
+            $this->log()->notice(sprintf("Now you can push your code to %s", $target_repo_url));
         }
 
         $this->log()->notice(sprintf("Site was correctly created, you can access your repo at %s", $target_repo_url));
