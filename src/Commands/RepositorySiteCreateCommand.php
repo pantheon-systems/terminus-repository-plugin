@@ -15,6 +15,7 @@ use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
 use Pantheon\Terminus\Models\Upstream;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Question\ChoiceQuestion;
+use Symfony\Component\Console\Question\Question;
 
 /**
  * Create a new pantheon site using ICR
@@ -45,6 +46,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      * @option region Specify the service region where the site should be
      *   created. See documentation for valid regions.
      * @option visibility Visibility of the site (private or public)
+     * @option vcs_token VCS Token in case a new installation is needed and vcs is GitLab.
      *
      * @usage <site> <label> <upstream> Creates a new site named <site>, human-readably labeled <label>, using code from <upstream>.
      * @usage <site> <label> <upstream> --org=<org> Creates a new site named <site>, human-readably labeled <label>, using code from <upstream>, associated with Pantheon <organization>.
@@ -58,6 +60,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'vcs' => 'github',
         'installation_id' => null,
         'visibility' => 'private',
+        'vcs_token' => null,
     ])
     {
 
@@ -147,7 +150,9 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                 break;
             }
         }
-        if (is_null($auth_url)) {
+
+        // GitHub requires an authorization URL.
+        if ($options['vcs'] === 'github' && (is_null($auth_url) || $auth_url === '""')) {
             $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
@@ -168,6 +173,9 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             $installations['new'] = $new_installation;
             foreach ($data['existing_installations'] as $installation) {
                 if ($installation->installation_type == 'front-end') {
+                    continue;
+                }
+                if ($installation->vendor != $options['vcs']) {
                     continue;
                 }
                 $installation_obj = new Installation(
@@ -215,17 +223,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         }
 
         if ($installation_id === 'new') {
-            $this->log()->notice("Opening authorization link in browser...");
-            $this->log()->notice("If your browser does not open, please go to the following URL:");
-            $this->log()->notice($auth_url);
-
-            $this->getContainer()
-                ->get(LocalMachineHelper::class)
-                ->openUrl($auth_url);
-
-            $this->log()->notice("Waiting for authorization to complete in browser...");
             try {
-                $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
+                $site_details = $this->handleNewInstallation($options['vcs'], $auth_url, $options);
             } catch (TerminusException $e) {
                 $this->cleanup($site_uuid);
                 throw $e;
@@ -322,6 +321,46 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $this->log()->notice(sprintf("Site was correctly created, you can access your repo at %s", $target_repo_url));
         $this->log()->notice(sprintf("You can also access your site dashboard at %s", $site->dashboardUrl()));
+    }
+
+    /**
+     * Handle new installation.
+     */
+    public function handleNewInstallation($vcs, $auth_url, $options): array
+    {
+        switch ($vcs) {
+            case 'github':
+                $this->log()->notice("Opening authorization link in browser...");
+                $this->log()->notice("If your browser does not open, please go to the following URL:");
+                $this->log()->notice($auth_url);
+
+                $this->getContainer()
+                    ->get(LocalMachineHelper::class)
+                    ->openUrl($auth_url);
+
+                $this->log()->notice("Waiting for authorization to complete in browser...");
+                $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
+                return $site_details;
+
+            case 'gitlab':
+                $token = null;
+                if (isset($installations[$options['vcs_token']])) {
+                    $token = $options['vcs_token'];
+                } else {
+                    // @TODO Write correct instructions.
+                    $this->log()->notice('Get a GitLab access token. More details at https://docs.pantheon.io');
+                    // Prompt for access token.
+                    $helper = new QuestionHelper();
+                    $question = new Question('Please enter the GitLab token');
+                    $token = $helper->ask($this->input(), $this->output(), $question);
+                }
+                if (!$token) {
+                    // Throw error because token cannot be empty.
+                    throw new TerminusException('Token cannot be empty');
+                }
+                // @TODO POST token and other info to vcs.
+                return [];
+        }
     }
 
     /**
