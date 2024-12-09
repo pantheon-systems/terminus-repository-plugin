@@ -351,14 +351,25 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                     $this->log()->notice('Get a GitLab access token. More details at https://docs.pantheon.io');
                     // Prompt for access token.
                     $helper = new QuestionHelper();
-                    $question = new Question('Please enter the GitLab token');
+                    $question = new Question("Please enter the GitLab token\n");
+                    $question->setValidator(function ($answer) {
+                        if ($answer == null || '' == trim($answer)) {
+                            throw new TerminusException('Token cannot be empty');
+                        }
+                        return $answer;
+                    });
+                    $question->setMaxAttempts(3);
+                    $question->setHidden(true);
                     $token = $helper->ask($this->input(), $this->output(), $question);
                 }
-                if (!$token) {
-                    // Throw error because token cannot be empty.
-                    throw new TerminusException('Token cannot be empty');
-                }
-                $question = new Question('Please enter the GitLab group name to create the repositories');
+                $question = new Question("Please enter the GitLab group name to create the repositories\n");
+                $question->setValidator(function ($answer) {
+                    if ($answer == null || '' == trim($answer)) {
+                        throw new TerminusException('Group name cannot be empty');
+                    }
+                    return $answer;
+                });
+                $question->setMaxAttempts(3);
                 $group_name = $helper->ask($this->input(), $this->output(), $question);
                 if (!$group_name) {
                     // Throw error because token cannot be empty.
