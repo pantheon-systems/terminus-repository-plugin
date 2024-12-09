@@ -224,7 +224,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         if ($installation_id === 'new') {
             try {
-                $site_details = $this->handleNewInstallation($options['vcs'], $auth_url, $options);
+                $site_details = $this->handleNewInstallation($options['vcs'], $auth_url, $site_uuid, $options);
             } catch (TerminusException $e) {
                 $this->cleanup($site_uuid);
                 throw $e;
@@ -326,7 +326,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     /**
      * Handle new installation.
      */
-    public function handleNewInstallation($vcs, $auth_url, $options): array
+    public function handleNewInstallation($vcs, $auth_url, $site_uuid, $options): array
     {
         switch ($vcs) {
             case 'github':
@@ -358,8 +358,33 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                     // Throw error because token cannot be empty.
                     throw new TerminusException('Token cannot be empty');
                 }
-                // @TODO POST token and other info to vcs.
-                return [];
+                $question = new Question('Please enter the GitLab group name to create the repositories');
+                $group_name = $helper->ask($this->input(), $this->output(), $question);
+                if (!$group_name) {
+                    // Throw error because token cannot be empty.
+                    throw new TerminusException('Group name cannot be empty');
+                }
+
+                $session = $this->session();
+                $user = $session->getUser();
+
+                $post_data = [
+                    'token' => $token,
+                    'vendor' => 2,
+                    'installation_type' => 'cms-site',
+                    'platform_user' => $user->id,
+                    'site_uuid' => $site_uuid,
+                    'vcs_organization' => $group_name,
+                    'pantheon_session' => $session->get('session'),
+                ];
+                $data = $this->getVcsClient()->installWithToken($post_data);
+                if (!$data['success']) {
+                    throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
+                }
+
+                $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
+                $site_details = (array) $site_details['data'][0];
+                return $site_details;
         }
     }
 
