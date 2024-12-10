@@ -279,7 +279,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             try {
                 $webhook_data = [
                     'repository' => $target_repo_url,
-                    'vendor' => $vcs_id,
+                    'vendor' => sprintf("%d", $vcs_id),
                     'workflow_uuid' => $workflow_uuid,
                     'site_uuid' => $site_uuid,
                 ];
