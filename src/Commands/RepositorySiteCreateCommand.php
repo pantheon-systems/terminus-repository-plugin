@@ -284,8 +284,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             $this->log()->notice('Deployed resources');
         }
 
-        // Push initial code to Github.
-        $this->log()->notice('Next: Pushing initial code to Github...');
+        // Push initial code to external repository.
+        $this->log()->notice('Next: Pushing initial code to your external repository...');
 
         // Get repo and branch from upstream.
         [$upstream_repo_url, $upstream_repo_branch] = $this->getUpstreamInformation($upstream_id);
@@ -307,6 +307,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'upstream_repo_branch' => $upstream_repo_branch,
             'installation_id' => (string) $installation_id,
             'organization_id' => $org->id,
+            'vendor_id' => $vcs_id,
         ];
 
         try {
