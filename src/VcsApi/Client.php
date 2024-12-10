@@ -94,6 +94,25 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Install webhook.
+     *
+     * @param array $webhook_install_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function installWebhook(array $webhook_install_data): array
+    {
+        $request_options = [
+            'json' => $webhook_install_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('webhook', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Process site details until we get the expected status or an error.
      */
     public function processSiteDetails(string $site_id, $timeout = 0): array

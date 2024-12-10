@@ -133,6 +133,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         // Normalize data.
         $data = (array) $data['data'][0];
 
+        $workflow_uuid = $data['workflow_uuid'];
+
         // Confirm required data is present
         if (!isset($data['site_details_id'])) {
             $this->cleanup($site_uuid, false);
@@ -270,6 +272,29 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             );
         }
         $target_repo_url = $data['repo_url'];
+
+        // Install webhook if needed.
+        if ($options['vcs'] != 'github') {
+            $this->log()->notice('Next: Installing webhook...');
+            try {
+                $webhook_data = [
+                    'repository' => $target_repo_url,
+                    'vendor' => $vcs_id,
+                    'workflow_uuid' => $workflow_uuid,
+                    'site_uuid' => $site_uuid,
+                ];
+                $this->getVcsClient()->installWebhook($webhook_data);
+            } catch (\Throwable $t) {
+                $this->cleanup($site_uuid);
+                throw new TerminusException(
+                    'Error installing webhook: {error_message}',
+                    ['error_message' => $t->getMessage()]
+                );
+            }
+            $this->log()->notice('Webhook installed');
+        } else {
+            $this->log()->notice('Next: No webhook needed for GitHub');
+        }
 
 
         // Deploy product.
