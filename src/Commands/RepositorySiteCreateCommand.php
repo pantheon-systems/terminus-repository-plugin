@@ -353,79 +353,96 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     }
 
     /**
+     * Handle Github new installation.
+     */
+    public function handleGithubNewInstallation($auth_url, $site_uuid): array
+    {
+        $this->log()->notice("Opening authorization link in browser...");
+        $this->log()->notice("If your browser does not open, please go to the following URL:");
+        $this->log()->notice($auth_url);
+
+        $this->getContainer()
+            ->get(LocalMachineHelper::class)
+            ->openUrl($auth_url);
+
+        $this->log()->notice("Waiting for authorization to complete in browser...");
+        $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
+        return $site_details;
+    }
+
+    /**
+     * Handle GitLab new installation.
+     */
+    public function handleGitLabNewInstallation($auth_url, $site_uuid, $options): array
+    {
+        $token = null;
+        if (isset($options['vcs_token'])) {
+            $token = $options['vcs_token'];
+        } else {
+            // @TODO Write correct instructions.
+            $this->log()->notice('Get a GitLab access token. More details at https://docs.pantheon.io');
+            // Prompt for access token.
+            $helper = new QuestionHelper();
+            $question = new Question("Please enter the GitLab token\n");
+            $question->setValidator(function ($answer) {
+                if ($answer == null || '' == trim($answer)) {
+                    throw new TerminusException('Token cannot be empty');
+                }
+                return $answer;
+            });
+            $question->setMaxAttempts(3);
+            $question->setHidden(true);
+            $token = $helper->ask($this->input(), $this->output(), $question);
+        }
+        $question = new Question("Please enter the GitLab group name to create the repositories\n");
+        $question->setValidator(function ($answer) {
+            if ($answer == null || '' == trim($answer)) {
+                throw new TerminusException('Group name cannot be empty');
+            }
+            return $answer;
+        });
+        $question->setMaxAttempts(3);
+        $group_name = $helper->ask($this->input(), $this->output(), $question);
+        if (!$group_name) {
+            // Throw error because token cannot be empty.
+            throw new TerminusException('Group name cannot be empty');
+        }
+
+        $session = $this->session();
+        $user = $session->getUser();
+
+        $post_data = [
+            'token' => $token,
+            'vendor' => 2,
+            'installation_type' => 'cms-site',
+            'platform_user' => $user->id,
+            'site_uuid' => $site_uuid,
+            'vcs_organization' => $group_name,
+            'pantheon_session' => $session->get('session'),
+        ];
+        $data = $this->getVcsClient()->installWithToken($post_data);
+        if (!$data['success']) {
+            throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
+        }
+
+        $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
+        $site_details = (array) $site_details['data'][0];
+        return $site_details;
+    }
+
+    /**
      * Handle new installation.
      */
     public function handleNewInstallation($vcs, $auth_url, $site_uuid, $options): array
     {
         switch ($vcs) {
             case 'github':
-                $this->log()->notice("Opening authorization link in browser...");
-                $this->log()->notice("If your browser does not open, please go to the following URL:");
-                $this->log()->notice($auth_url);
-
-                $this->getContainer()
-                    ->get(LocalMachineHelper::class)
-                    ->openUrl($auth_url);
-
-                $this->log()->notice("Waiting for authorization to complete in browser...");
-                $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, 600);
-                return $site_details;
+                return $this->handleGithubNewInstallation($auth_url, $site_uuid);
 
             case 'gitlab':
-                $token = null;
-                if (isset($installations[$options['vcs_token']])) {
-                    $token = $options['vcs_token'];
-                } else {
-                    // @TODO Write correct instructions.
-                    $this->log()->notice('Get a GitLab access token. More details at https://docs.pantheon.io');
-                    // Prompt for access token.
-                    $helper = new QuestionHelper();
-                    $question = new Question("Please enter the GitLab token\n");
-                    $question->setValidator(function ($answer) {
-                        if ($answer == null || '' == trim($answer)) {
-                            throw new TerminusException('Token cannot be empty');
-                        }
-                        return $answer;
-                    });
-                    $question->setMaxAttempts(3);
-                    $question->setHidden(true);
-                    $token = $helper->ask($this->input(), $this->output(), $question);
-                }
-                $question = new Question("Please enter the GitLab group name to create the repositories\n");
-                $question->setValidator(function ($answer) {
-                    if ($answer == null || '' == trim($answer)) {
-                        throw new TerminusException('Group name cannot be empty');
-                    }
-                    return $answer;
-                });
-                $question->setMaxAttempts(3);
-                $group_name = $helper->ask($this->input(), $this->output(), $question);
-                if (!$group_name) {
-                    // Throw error because token cannot be empty.
-                    throw new TerminusException('Group name cannot be empty');
-                }
-
-                $session = $this->session();
-                $user = $session->getUser();
-
-                $post_data = [
-                    'token' => $token,
-                    'vendor' => 2,
-                    'installation_type' => 'cms-site',
-                    'platform_user' => $user->id,
-                    'site_uuid' => $site_uuid,
-                    'vcs_organization' => $group_name,
-                    'pantheon_session' => $session->get('session'),
-                ];
-                $data = $this->getVcsClient()->installWithToken($post_data);
-                if (!$data['success']) {
-                    throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
-                }
-
-                $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
-                $site_details = (array) $site_details['data'][0];
-                return $site_details;
+                return $this->handleGitLabNewInstallation($auth_url, $site_uuid, $options);
         }
+        return [];
     }
 
     /**

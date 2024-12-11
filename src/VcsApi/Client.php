@@ -77,16 +77,16 @@ class Client implements ConfigAwareInterface
     /**
      * Call installwithtoken endpoint.
      *
-     * @param array $install_with_token_data
+     * @param array $data
      *
      * @return array
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
-    public function installWithToken(array $install_with_token_data): array
+    public function installWithToken(array $data): array
     {
         $request_options = [
-            'json' => $install_with_token_data,
+            'json' => $data,
             'method' => 'POST',
         ];
 
