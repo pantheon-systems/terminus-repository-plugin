@@ -278,12 +278,15 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             $this->log()->notice('Next: Installing webhook...');
             try {
                 $webhook_data = [
-                    'repository' => $target_repo_url,
-                    'vendor' => sprintf("%d", $vcs_id),
+                    'repository' => $site_name,
+                    'vendor' => $options['vcs'],
                     'workflow_uuid' => $workflow_uuid,
                     'site_uuid' => $site_uuid,
                 ];
-                $this->getVcsClient()->installWebhook($webhook_data);
+                $data = $this->getVcsClient()->installWebhook($webhook_data);
+                if (!$data['success']) {
+                    throw new TerminusException("An error happened while installing webhook: {error_message}", ['error_message' => $data['data']]);
+                }
             } catch (\Throwable $t) {
                 $this->cleanup($site_uuid);
                 throw new TerminusException(
