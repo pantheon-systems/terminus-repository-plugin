@@ -373,7 +373,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     /**
      * Handle GitLab new installation.
      */
-    public function handleGitLabNewInstallation($auth_url, $site_uuid, $options): array
+    public function handleGitLabNewInstallation($site_uuid, $options): array
     {
         $token = null;
         if (isset($options['vcs_token'])) {
@@ -440,7 +440,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                 return $this->handleGithubNewInstallation($auth_url, $site_uuid);
 
             case 'gitlab':
-                return $this->handleGitLabNewInstallation($auth_url, $site_uuid, $options);
+                return $this->handleGitLabNewInstallation($site_uuid, $options);
         }
         return [];
     }
