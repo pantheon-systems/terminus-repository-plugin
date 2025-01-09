@@ -79,6 +79,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $workflow_options = [
             'label' => $label,
             'site_name' => $site_name,
+            'has_external_vcs' => true,
         ];
         // If the user specified a region, then include it in the workflow
         // options. We'll allow the API to decide whether the region is valid.
@@ -287,7 +288,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         // Push initial code to Github.
         $this->log()->notice('Next: Pushing initial code to Github...');
 
-        $upstream_repo_url = $this->getUpstreamRepository($upstream_id);
+        // Get repo and branch from upstream.
+        [$upstream_repo_url, $upstream_repo_branch] = $this->getUpstreamInformation($upstream_id);
 
         $installation_id = $site_details['installation_id'];
         if (!$installation_id) {
@@ -303,6 +305,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'site_id' => $site_uuid,
             'target_repo_url' => $target_repo_url,
             'upstream_repo_url' => $upstream_repo_url,
+            'upstream_repo_branch' => $upstream_repo_branch,
             'installation_id' => (string) $installation_id,
             'organization_id' => $org->id,
         ];
@@ -310,7 +313,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         try {
             $this->getVcsClient()->repoInitialize($repo_initialize_data);
         } catch (\Throwable $t) {
-            $this->cleanup($site_uuid);
+            $this->log()->notice(sprintf("Now you can push your code to %s", $target_repo_url));
             throw new TerminusException(
                 'Error initializing repo with contents: {error_message}',
                 ['error_message' => $t->getMessage()]
@@ -399,10 +402,10 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         }
     }
 
-    public function getUpstreamRepository(string $upstream_id): string
+    public function getUpstreamInformation(string $upstream_id): array
     {
         $user = $this->session()->getUser();
         $upstream = $user->getUpstreams()->get($upstream_id);
-        return $upstream->get('repository_url');
+        return [$upstream->get('repository_url'), $upstream->get('repository_branch')];
     }
 }
