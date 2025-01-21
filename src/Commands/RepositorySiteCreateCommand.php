@@ -39,7 +39,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      * @param string $site_name Site name
      * @param string $label Site label
      * @param string $upstream_id Upstream name or UUID
-     * @option org Organization name, label, or ID (Required)
+     * @param string $org_id Organization name, label, or ID
      * @option vcs VCS Type (e.g. github,gitlab,bitbucket)
      * @option installation_id Installation ID (e.g. 123456)
      *   If not specified, the user will be prompted to select an installation when there are existing installations.
@@ -54,8 +54,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
 
-    public function create($site_name, $label, $upstream_id, $options = [
-        'org' => null,
+    public function create($site_name, $label, $upstream_id, $org_id, $options = [
         'region' => null,
         'vcs' => 'github',
         'installation_id' => null,
@@ -63,10 +62,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         'vcs_token' => null,
     ])
     {
-
-        if (empty($options['org'])) {
-            throw new TerminusException('Please specify an organization.');
-        }
 
         // Validate VCS and convert to id.
         if (!in_array($options['vcs'], $this->vcss)) {
@@ -97,7 +92,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $icr_upstream = $this->getIcrUpstream($upstream_id);
 
         // Locate organization.
-        $org_id = $options['org'];
         $org = $user->getOrganizationMemberships()->get($org_id)->getOrganization();
         if (!$org) {
             throw new TerminusException('Organization {org_id} not found.', compact('org_id'));

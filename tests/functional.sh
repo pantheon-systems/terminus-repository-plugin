@@ -5,4 +5,4 @@ cd tests/fakes && python3 -m venv . && source ./bin/activate && pip3 install -r 
 source $WORKSPACE/.envrc.dist
 
 # Create site.
-terminus repository:site:create $TERMINUS_SITE_NAME $TERMINUS_SITE_NAME drupal-10-composer-managed --org=$ORG_ID --vcs=github
+terminus repository:site:create $TERMINUS_SITE_NAME $TERMINUS_SITE_NAME drupal-10-composer-managed $ORG_ID --vcs=github
