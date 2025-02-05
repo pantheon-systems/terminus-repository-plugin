@@ -88,6 +88,9 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
 
         $user = $this->session()->getUser();
 
+        // Make sure this is an actual id as the param could either by id, machine name or label.
+        $upstream_id = $this->getUpstreamId($upstream_id);
+
         // Locate upstream.
         $icr_upstream = $this->getIcrUpstream($upstream_id);
 
@@ -325,6 +328,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $repo_initialize_data = [
             'site_id' => $site_uuid,
             'target_repo_url' => $target_repo_url,
+            'upstream_id' => $upstream_id,
             'upstream_repo_url' => $upstream_repo_url,
             'upstream_repo_branch' => $upstream_repo_branch,
             'installation_id' => (string) $installation_id,
@@ -454,6 +458,13 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
+    }
+
+    public function getUpstreamId(string $upstream_id): string
+    {
+        $user = $this->session()->getUser();
+        $upstream = $user->getUpstreams()->get($upstream_id);
+        return $upstream->id;
     }
 
     /**
