@@ -370,13 +370,13 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     public function handleGitLabNewInstallation($site_uuid, $options): array
     {
         $token = null;
+        $helper = new QuestionHelper();
         if (isset($options['vcs_token'])) {
             $token = $options['vcs_token'];
         } else {
             // @TODO Write correct instructions.
             $this->log()->notice('Get a GitLab access token. More details at https://docs.pantheon.io');
             // Prompt for access token.
-            $helper = new QuestionHelper();
             $question = new Question("Please enter the GitLab token\n");
             $question->setValidator(function ($answer) {
                 if ($answer == null || '' == trim($answer)) {
