@@ -12,6 +12,7 @@ use Pantheon\TerminusRepository\VcsApi\VcsClientAwareTrait;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareTrait;
 use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
+use Pantheon\Terminus\Models\Site;
 use Pantheon\Terminus\Models\Upstream;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Question\ChoiceQuestion;
@@ -73,11 +74,17 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
         }
 
+        // Locate upstream.
+        $icr_upstream = $this->getIcrUpstream($upstream_id);
+
+        $site_type = $this->getSiteType($icr_upstream);
+
         // Site creation in Pantheon. This code is mostly coming from Terminus site:create command.
         $workflow_options = [
             'label' => $label,
             'site_name' => $site_name,
             'has_external_vcs' => true,
+            'deploy_on_sta' => $this->isDeployableOnSTA($site_type),
         ];
         // If the user specified a region, then include it in the workflow
         // options. We'll allow the API to decide whether the region is valid.
@@ -112,7 +119,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'org_uuid' => $workflow_options['organization_id'] ?? $user->id,
             'site_uuid' => $site_uuid,
             'site_name' => $site_name,
-            'site_type' => $this->getSiteType($icr_upstream),
+            'site_type' => $site_type,
         ];
 
         try {
@@ -455,6 +462,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             case 'wordpress':
             case 'wordpress-network':
                 return 'cms-wordpress';
+            case 'nodejs':
+                return 'nodejs';
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
@@ -491,6 +500,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                 return $user->getUpstreams()->get('wordpress-icr');
             case 'wordpress-network':
                 return $user->getUpstreams()->get('wordpress-multisite-icr');
+            case 'nodejs':
+                return $user->getUpstreams()->get('nodejs');
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
@@ -533,5 +544,16 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $user = $this->session()->getUser();
         $upstream = $user->getUpstreams()->get($upstream_id);
         return [$upstream->get('repository_url'), $upstream->get('repository_branch')];
+    }
+
+    /**
+     * Check if the site should be deployed on STA or not.
+     */
+    protected function isDeployableOnSTA(string $site_type): bool
+    {
+        if ($site_type == "nodejs") {
+            return true;
+        }
+        return false;
     }
 }
