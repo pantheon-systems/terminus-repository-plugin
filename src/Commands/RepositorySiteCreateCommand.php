@@ -84,7 +84,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'label' => $label,
             'site_name' => $site_name,
             'has_external_vcs' => true,
-            'deploy_on_sta' => $this->isDeployableOnSTA($site_type),
+            'site_type' => $site_type,
         ];
         // If the user specified a region, then include it in the workflow
         // options. We'll allow the API to decide whether the region is valid.
@@ -544,16 +544,5 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $user = $this->session()->getUser();
         $upstream = $user->getUpstreams()->get($upstream_id);
         return [$upstream->get('repository_url'), $upstream->get('repository_branch')];
-    }
-
-    /**
-     * Check if the site should be deployed on STA or not.
-     */
-    protected function isDeployableOnSTA(string $site_type): bool
-    {
-        if ($site_type == "nodejs") {
-            return true;
-        }
-        return false;
     }
 }
