@@ -74,17 +74,24 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
         }
 
+        // Make sure this is an actual id as the param could either by id, machine name or label.
+        $upstream_id = $this->getUpstreamId($upstream_id);
+
         // Locate upstream.
         $icr_upstream = $this->getIcrUpstream($upstream_id);
 
         $site_type = $this->getSiteType($icr_upstream);
+
+        // Get preferred platform for the framework.
+        // Right now on nodejs sites is getting deployed on the STA.
+        $preferred_platform = $this->getPreferredPlatformForFramework($site_type);
 
         // Site creation in Pantheon. This code is mostly coming from Terminus site:create command.
         $workflow_options = [
             'label' => $label,
             'site_name' => $site_name,
             'has_external_vcs' => true,
-            'site_type' => $site_type,
+            'preferred_platform' => $preferred_platform,
         ];
         // If the user specified a region, then include it in the workflow
         // options. We'll allow the API to decide whether the region is valid.
@@ -94,12 +101,6 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         }
 
         $user = $this->session()->getUser();
-
-        // Make sure this is an actual id as the param could either by id, machine name or label.
-        $upstream_id = $this->getUpstreamId($upstream_id);
-
-        // Locate upstream.
-        $icr_upstream = $this->getIcrUpstream($upstream_id);
 
         // Locate organization.
         $org = $user->getOrganizationMemberships()->get($org_id)->getOrganization();
@@ -544,5 +545,14 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
         $user = $this->session()->getUser();
         $upstream = $user->getUpstreams()->get($upstream_id);
         return [$upstream->get('repository_url'), $upstream->get('repository_branch')];
+    }
+
+    private function getPreferredPlatformForFramework($framework)
+    {
+        // ATM only nodejs framework is supported on the STA platform update it when more frameworks are supported.
+        if ($framework == 'nodejs') {
+            return 'sta';
+        }
+        return 'cos';
     }
 }
