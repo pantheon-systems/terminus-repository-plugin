@@ -461,7 +461,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             case 'drupal8':
                 return 'cms-drupal';
             case 'wordpress':
-            case 'wordpress-network':
+            case 'wordpress_network':
                 return 'cms-wordpress';
             case 'nodejs':
                 return 'nodejs';
