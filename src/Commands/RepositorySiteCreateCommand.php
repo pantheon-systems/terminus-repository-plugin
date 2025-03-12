@@ -499,7 +499,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                 return $user->getUpstreams()->get('drupal-icr');
             case 'wordpress':
                 return $user->getUpstreams()->get('wordpress-icr');
-            case 'wordpress-network':
+            case 'wordpress_network':
                 return $user->getUpstreams()->get('wordpress-multisite-icr');
             case 'nodejs':
                 return $user->getUpstreams()->get('nodejs');
