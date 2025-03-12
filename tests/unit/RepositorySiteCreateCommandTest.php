@@ -47,7 +47,7 @@ class RepositorySiteCreateCommandTest extends TestCase
         $upstream_drupal_icr->id = "aaaa-bbbb-3";
         $upstream_wordpress_multisite_icr->machine_name = "wordpress-multisite-icr";
         $upstream_wordpress_multisite_icr->organization_id = null;
-        $upstream_wordpress_multisite_icr->framework = 'wordpress-network';
+        $upstream_wordpress_multisite_icr->framework = 'wordpress_network';
         $upstreams->add($upstream_wordpress_multisite_icr);
 
         return $upstreams;
@@ -133,9 +133,9 @@ class RepositorySiteCreateCommandTest extends TestCase
         $result = $command->getSiteType($upstream);
         $this->assertSame('cms-wordpress', $result);
 
-        // Test that the method returns 'cms-wordpress' for a wordpress-network upstream.
+        // Test that the method returns 'cms-wordpress' for a wordpress_network upstream.
         $upstream = Mockery::mock(Upstream::class);
-        $upstream->shouldReceive('get')->with('framework')->andReturn('wordpress-network');
+        $upstream->shouldReceive('get')->with('framework')->andReturn('wordpress_network');
         $result = $command->getSiteType($upstream);
         $this->assertSame('cms-wordpress', $result);
 
