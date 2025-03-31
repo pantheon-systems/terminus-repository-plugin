@@ -204,6 +204,24 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Pause build for a given site.
+     *
+     * @param string $site_id
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function pauseBuild(string $site_id): array
+    {
+        $request_options = [
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('site-details/' . $site_id . '/pause-builds', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Performs the request to API path.
      *
      * @param string $path
