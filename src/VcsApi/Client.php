@@ -222,6 +222,25 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Pushes GitHub VCS event to the VCS API.
+     */
+    public function githubVcs($data, string $site_id, string $event_name): array
+    {
+        $request_options = [
+            'json' => $data,
+            'method' => 'POST',
+            'headers' => [
+                'X-Pantheon-Site-Id' => $site_id,
+                'Accept' => 'application/json',
+                'X-Pantheon-Session' => $this->request->session()->get('session'),
+                'X-GitHub-Event' => $event_name,
+            ],
+        ];
+
+        return $this->requestApi('github-vcs', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Performs the request to API path.
      *
      * @param string $path
