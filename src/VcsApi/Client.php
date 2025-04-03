@@ -222,6 +222,24 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Resume build for a given site.
+     *
+     * @param string $site_id
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function resumeBuild(string $site_id): array
+    {
+        $request_options = [
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('site-details/' . $site_id . '/resume-builds', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Pushes GitHub VCS event to the VCS API.
      */
     public function githubVcs($data, string $site_id, string $event_name): array
