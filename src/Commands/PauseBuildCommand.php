@@ -53,5 +53,4 @@ class PauseBuildCommand extends TerminusCommand implements SiteAwareInterface, R
         }
         $this->log()->notice('Build for {site} has been paused.', ['site' => $site->getName()]);
     }
-
 }

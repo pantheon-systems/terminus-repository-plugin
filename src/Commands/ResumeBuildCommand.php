@@ -53,5 +53,4 @@ class ResumeBuildCommand extends TerminusCommand implements SiteAwareInterface, 
         }
         $this->log()->notice('Build for {site} has been resumed.', ['site' => $site->getName()]);
     }
-
 }

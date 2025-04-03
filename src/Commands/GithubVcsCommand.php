@@ -66,5 +66,4 @@ class GithubVcsCommand extends TerminusCommand implements SiteAwareInterface, Re
         }
         $this->log()->notice('Event sent.');
     }
-
 }
