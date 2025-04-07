@@ -29,13 +29,14 @@ class GithubVcsCommand extends TerminusCommand implements SiteAwareInterface, Re
      *
      * @param string $site Site name or ID
      * @param string $event_name GitHub event name
+     * @param string $installation_id GitHub installation ID
      * @param string $data JSON encoded data to send to the VCS API
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      *
      * @usage <data> Pushes GitHub VCS event to the VCS API.
      */
-    public function githubVcs(string $site, string $event_name, string $data)
+    public function githubVcs(string $site, string $event_name, string $installation_id, string $data)
     {
 
         $site_env = "{$site}.dev";
@@ -52,10 +53,12 @@ class GithubVcsCommand extends TerminusCommand implements SiteAwareInterface, Re
             throw new TerminusException('Data must be a JSON encoded string.');
         }
         // Is it valid json?
-        $data = json_decode($data);
+        $data = json_decode($data, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new TerminusException('Invalid JSON data provided: {error}', ['error' => json_last_error_msg()]);
         }
+
+        $data['installation']['id'] = intval($installation_id);
 
         $data = $this->getVcsClient()->githubVcs($data, $site->id, $event_name);
         if (isset($data['error'])) {
