@@ -52,5 +52,17 @@ class PauseBuildCommand extends TerminusCommand implements SiteAwareInterface, R
             throw new TerminusException('Error pausing build: {error}', ['error' => $data['message']]);
         }
         $this->log()->notice('Build for {site} has been paused.', ['site' => $site->getName()]);
+
+        $this->log()->notice('Fetching site details...');
+        $data = $this->getVcsClient()->getSiteDetailsById($site->id);
+        if (isset($data['error'])) {
+            throw new TerminusException('Error fetching site details: {error}', ['error' => $data['error']]);
+        }
+        if ($data['success'] !== true) {
+            throw new TerminusException('Error fetching site details: {error}', ['error' => $data['message']]);
+        }
+        $sd = $data['data'][0];
+        $this->log()->notice('Your installation id is: {installation_id}', ['installation_id' => $sd->installation_id]);
+
     }
 }

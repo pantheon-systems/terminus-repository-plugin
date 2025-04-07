@@ -240,6 +240,18 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Get site details by id.
+     */
+    public function getSiteDetailsById(string $site_id): array
+    {
+        $request_options = [
+            'method' => 'GET',
+        ];
+
+        return $this->requestApi('site-details/' . $site_id, $request_options);
+    }
+
+    /**
      * Pushes GitHub VCS event to the VCS API.
      */
     public function githubVcs($data, string $site_id, string $event_name): array
