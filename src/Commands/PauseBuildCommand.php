@@ -63,6 +63,5 @@ class PauseBuildCommand extends TerminusCommand implements SiteAwareInterface, R
         }
         $sd = $data['data'][0];
         $this->log()->notice('Your installation id is: {installation_id}', ['installation_id' => $sd->installation_id]);
-
     }
 }
