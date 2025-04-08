@@ -62,6 +62,8 @@ class PauseBuildCommand extends TerminusCommand implements SiteAwareInterface, R
             throw new TerminusException('Error fetching site details: {error}', ['error' => $data['message']]);
         }
         $details = $data['data'][0];
-        $this->log()->notice('Your installation id is: {installation_id}', ['installation_id' => $details->installation_id]);
+        $this->log()->notice('Your installation id is: {installation_id}', [
+            'installation_id' => $details->installation_id,
+        ]);
     }
 }
