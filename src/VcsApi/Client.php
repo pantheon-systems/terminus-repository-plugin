@@ -204,6 +204,73 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Pause build for a given site.
+     *
+     * @param string $site_id
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function pauseBuild(string $site_id): array
+    {
+        $request_options = [
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('site-details/' . $site_id . '/pause-builds', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
+     * Resume build for a given site.
+     *
+     * @param string $site_id
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function resumeBuild(string $site_id): array
+    {
+        $request_options = [
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('site-details/' . $site_id . '/resume-builds', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
+     * Get site details by id.
+     */
+    public function getSiteDetailsById(string $site_id): array
+    {
+        $request_options = [
+            'method' => 'GET',
+        ];
+
+        return $this->requestApi('site-details/' . $site_id, $request_options);
+    }
+
+    /**
+     * Pushes GitHub VCS event to the VCS API.
+     */
+    public function githubVcs($data, string $site_id, string $event_name): array
+    {
+        $request_options = [
+            'json' => $data,
+            'method' => 'POST',
+            'headers' => [
+                'X-Pantheon-Site-Id' => $site_id,
+                'Accept' => 'application/json',
+                'X-Pantheon-Session' => $this->request->session()->get('session'),
+                'X-GitHub-Event' => $event_name,
+            ],
+        ];
+
+        return $this->requestApi('github-vcs', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Performs the request to API path.
      *
      * @param string $path
