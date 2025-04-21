@@ -121,6 +121,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
             'site_uuid' => $site_uuid,
             'site_name' => $site_name,
             'site_type' => $site_type,
+            'platform_type' => $preferred_platform,
         ];
 
         try {
@@ -465,6 +466,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                 return 'cms-wordpress';
             case 'nodejs':
                 return 'nodejs';
+            case 'nextjs15':
+                return 'nextjs15';
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
@@ -503,6 +506,8 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
                 return $user->getUpstreams()->get('wordpress-multisite-icr');
             case 'nodejs':
                 return $user->getUpstreams()->get('nodejs');
+            case 'nextjs15':
+                return $user->getUpstreams()->get('nextjs15');
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
@@ -550,7 +555,7 @@ class RepositorySiteCreateCommand extends TerminusCommand implements RequestAwar
     private function getPreferredPlatformForFramework($framework)
     {
         // ATM only nodejs framework is supported on the STA platform update it when more frameworks are supported.
-        if ($framework == 'nodejs') {
+        if ($framework == 'nodejs' || $framework == 'nextjs15') {
             return 'sta';
         }
         return 'cos';
