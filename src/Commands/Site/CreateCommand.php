@@ -498,9 +498,15 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'label' => $site_name, // Use site_name for the repo name
             'skip_create' => false,
             'is_private' => strtolower($options['visibility']) === 'private',
-            'vendor_id' => array_search($vcs_provider, $this->vcss) + 1, // Get numeric ID (1 for pantheon, 2 for github)
+            // Explicitly set vendor_id based on backend expectation (GitHub = 1)
+            'vendor_id' => ($vcs_provider === 'github') ? 1 : null, // Adjust if other providers are added
             // 'vcs_organization' => $vcs_org_name, // Does repoCreate need the org name? Old code didn't send it. Check API. Assuming not needed for now.
         ];
+        // Validate vendor_id before proceeding
+        if (is_null($repo_create_data['vendor_id'])) {
+             $this->cleanupPantheonSite($site_uuid, "Unsupported VCS provider '{$vcs_provider}' for repo creation.");
+             throw new TerminusException("Cannot determine vendor ID for VCS provider: {$vcs_provider}");
+        }
         $target_repo_url = null;
         try {
             $repo_create_response = $vcs_client->repoCreate($repo_create_data);
@@ -551,8 +557,14 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 'upstream_repo_branch' => $upstream_repo_branch,
                 'installation_id' => (string) $installation_id, // Must be string
                 'organization_id' => $pantheon_org->id, // Pantheon Org UUID
-                'vendor_id' => array_search($vcs_provider, $this->vcss) + 1,
+                 // Explicitly set vendor_id based on backend expectation (GitHub = 1)
+                'vendor_id' => ($vcs_provider === 'github') ? 1 : null, // Adjust if other providers are added
             ];
+             // Validate vendor_id before proceeding
+            if (is_null($repo_initialize_data['vendor_id'])) {
+                 // Don't cleanup site here, just throw as repo init is the last step
+                 throw new TerminusException("Cannot determine vendor ID for repo initialization for VCS provider: {$vcs_provider}");
+            }
 
             $vcs_client->repoInitialize($repo_initialize_data);
             $this->log()->notice('Initial code pushed successfully.');
