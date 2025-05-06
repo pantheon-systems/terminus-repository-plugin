@@ -27,11 +27,9 @@ Pantheon was created with git as a core component of the platform but until now 
 
 eVCS Sites comes to close this gap by offering a solution for our customers to be able to manage their code wherever they want (GitHub only supported initially) and easily integrate it with our platform.
 
-This product is currently in [Alpha](https://docs.pantheon.io) state so you need to request access to it if you want to help us shape it.
-
 ## Getting access to eVCS Sites
 
-To get access to eVCS Sites, please fill in this [form](https://docs.pantheon.io) and we will contact you soon.
+This product is currently in Private Beta. To get access, fill in [this form](https://forms.gle/GQqrfrkVWd3ghU8j8) and we will contact you soon.
 
 ## Getting support for eVCS Sites
 
