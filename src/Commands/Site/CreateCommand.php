@@ -45,7 +45,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     // RequestAwareTrait is needed for VcsClientAwareTrait
 
     // Supported VCS types (can be expanded later)
-    protected $vcs_providers = ['pantheon', 'github', 'gitlab', 'bitbucket']; // Added 'pantheon'
+    protected $vcs_providers = ['pantheon', 'github', 'gitlab', 'bitbucket'];
 
     /**
      * Creates a new site
@@ -92,6 +92,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         // Validate VCS provider
         if (!in_array($vcs_provider, $this->vcs_providers)) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Exception message, not HTML output.
             throw new TerminusException(
                 'Invalid VCS provider specified: {vcs}. Supported providers are: {supported}',
                 ['vcs' => $vcs_provider, 'supported' => implode(', ', $this->vcs_providers)]
@@ -551,7 +552,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // Capture the timestamp before we push code, for use in workflow wait later
-        $startTime = time();
+        // $startTime = time();   // not used because i disabled all the waiting because i couldn't get it to work
 
         // 8. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
         $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
