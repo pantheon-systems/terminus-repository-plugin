@@ -597,33 +597,36 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Site "{site}" created successfully with GitHub repository!', ['site' => $site->getName()]);
         $this->log()->notice('GitHub Repository: {url}', ['url' => $target_repo_url]);
         $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
-        $this->log()->notice('---');
 
-        if ($preferred_platform === 'cos') {
-            $this->waitForWorkflow(
-                $startTime,
-                $site,
-                'dev',
-                ' ', // $expectedWorkflowDescription
-                600, // maxWaitInSeconds - 10 minutes
-                null // $maxNotFoundAttempts
-            );
-        }
 
-        $this->log()->notice('Waiting for site dev environment to become available...');
-        try {
-            $env = $site->getEnvironments()->get('dev');
-            if ($env instanceof Environment) {
-                $this->waitForWake($env, $this->logger);
-                $this->log()->notice('Site dev environment is available.');
-            } else {
-                $this->log()->warning('Could not retrieve the dev environment object, unable to confirm availability.');
-            }
-        } catch (TerminusNotFoundException $e) {
-             $this->log()->warning('Dev environment not found immediately after site creation. It might still be provisioning.');
-        } catch (\Exception $e) {
-             $this->log()->error('An error occurred while waiting for the site to wake: {message}', ['message' => $e->getMessage()]);
-        }
+        // Don't wait for anything.
+        // $this->log()->notice('---');
+
+        // if ($preferred_platform === 'cos') {
+        //     $this->waitForWorkflow(
+        //         $startTime,
+        //         $site,
+        //         'dev',
+        //         ' ', // $expectedWorkflowDescription
+        //         600, // maxWaitInSeconds - 10 minutes
+        //         null // $maxNotFoundAttempts
+        //     );
+        // }
+
+        // $this->log()->notice('Waiting for site dev environment to become available...');
+        // try {
+        //     $env = $site->getEnvironments()->get('dev');
+        //     if ($env instanceof Environment) {
+        //         $this->waitForWake($env, $this->logger);
+        //         $this->log()->notice('Site dev environment is available.');
+        //     } else {
+        //         $this->log()->warning('Could not retrieve the dev environment object, unable to confirm availability.');
+        //     }
+        // } catch (TerminusNotFoundException $e) {
+        //      $this->log()->warning('Dev environment not found immediately after site creation. It might still be provisioning.');
+        // } catch (\Exception $e) {
+        //      $this->log()->error('An error occurred while waiting for the site to wake: {message}', ['message' => $e->getMessage()]);
+        // }
     }
 
     // --- Helper methods adapted from RepositorySiteCreateCommand ---
