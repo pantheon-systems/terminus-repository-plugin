@@ -328,7 +328,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 2. Determine ICR Upstream & Site Type & Platform
-        $icr_upstream = $this->getIcrUpstream($upstream->id); // Use the original upstream ID
+        $icr_upstream = $this->getIcrUpstream($upstream->id, $user); // Use the original upstream ID
         $site_type = $this->getSiteType($upstream); // Use the original upstream for type determination
         $preferred_platform = $this->getPreferredPlatformForFramework($site_type);
 
@@ -805,10 +805,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     /**
      * Get ICR upstream based on the upstream passed as argument.
      */
-    protected function getIcrUpstream(string $original_upstream_id): Upstream
+    protected function getIcrUpstream(string $original_upstream_id, User $user): Upstream
     {
-        $user = $this->session()->getUser();
-
         $original_upstream = $user->getUpstreams()->get($original_upstream_id); // Already validated upstream exists
         $framework = $original_upstream->get('framework');
         return $this->getIcrUpstreamFromFramework($framework, $user);
