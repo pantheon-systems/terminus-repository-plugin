@@ -34,7 +34,6 @@ use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\Question; // Keep if direct Question needed, maybe not
 
-
 /**
  * Creates a new site, potentially with an external Git repository.
  * This command overrides the core site:create command when the plugin is enabled.
@@ -363,7 +362,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                  throw new TerminusException('VCS service did not return necessary workflow details (workflow_uuid, auth_url, or existing_installations).');
             }
             $this->log()->notice('VCS service workflow initiated successfully.');
-
         } catch (\Throwable $t) {
             $this->cleanupPantheonSite($site_uuid, 'Failed to initiate workflow with VCS service.');
             throw new TerminusException(
@@ -573,7 +571,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
             $vcs_client->repoInitialize($repo_initialize_data);
             $this->log()->notice('Initial code pushed successfully.');
-
         } catch (\Throwable $t) {
             // If repoInitialize fails, the site and repo exist, but code isn't there.
             // Don't delete the site. Log a warning and the repo URL.
@@ -679,10 +676,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         if (!isset($icr_upstream_map[$framework])) {
              // Handle custom upstreams or unsupported frameworks
-             if (empty($framework)) {
-                 // Maybe default to 'empty-icr' or throw error?
-                 throw new TerminusException('Cannot determine ICR upstream for custom upstream without framework.');
-             }
+            if (empty($framework)) {
+                // Maybe default to 'empty-icr' or throw error?
+                throw new TerminusException('Cannot determine ICR upstream for custom upstream without framework.');
+            }
              throw new TerminusException('Framework {framework} does not have a corresponding ICR upstream defined.', compact('framework'));
         }
 
@@ -819,5 +816,4 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         return $site_details;
     }
-
 } // End of CreateCommand class
