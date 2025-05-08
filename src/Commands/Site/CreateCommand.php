@@ -1,25 +1,21 @@
 <?php
 
-// Namespace matches the new location within the plugin
 namespace Pantheon\TerminusRepository\Commands\Site;
 
-// Core Terminus dependencies
 use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
 use Pantheon\Terminus\Exceptions\TerminusException;
-use Pantheon\Terminus\Exceptions\TerminusNotFoundException; // Added for specific exception handling
+use Pantheon\Terminus\Exceptions\TerminusNotFoundException;
 use Pantheon\Terminus\Helpers\Traits\WaitForWakeTrait;
-use Pantheon\Terminus\Models\Environment; // Needed for WaitForWake
+use Pantheon\Terminus\Models\Environment;
 use Pantheon\Terminus\Models\Upstream;
 use Pantheon\Terminus\Models\User;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareInterface;
-use Pantheon\Terminus\Helpers\LocalMachineHelper; // Added for browser opening
-use Pantheon\TerminusRepository\VcsApi\Installation; // Keep for type hinting if used
+use Pantheon\Terminus\Helpers\LocalMachineHelper;
+use Pantheon\TerminusRepository\VcsApi\Installation;
 use Pantheon\TerminusRepository\VcsApi\VcsClientAwareTrait;
 use Pantheon\TerminusRepository\WorkflowWaitTrait;
-// Base SiteCommand from core (contains getSiteById etc.)
 use Pantheon\Terminus\Commands\Site\SiteCommand;
-// For prompting
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\Question;
@@ -31,16 +27,17 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Creates a new site, potentially with an external Git repository.
  * This command overrides the core site:create command when the plugin is enabled.
  */
-class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAwareInterface // Extends SiteCommand now
+class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAwareInterface
 {
-    // Traits from core CreateCommand
     use WorkflowProcessingTrait;
     use WaitForWakeTrait;
     use WorkflowWaitTrait;
+    use VcsClientAwareTrait;
 
-    // Traits needed for plugin functionality & dependencies
-    use VcsClientAwareTrait; // Provides getVcsClient()
+    // Wait time for GitHub app installation to succeed.
+    const AUTH_LINK_TIMEOUT = 600;
 
+    // @TODO: Delete this comment block.
     // SiteAwareTrait is inherited from SiteCommand
     // SessionAwareTrait is inherited from SiteCommand
     // ConfigAwareTrait is inherited from SiteCommand
@@ -68,6 +65,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * @option vcs-provider VCS provider for the site repository (e.g., github, pantheon). Default is pantheon.
      * @option vcs-org Name of the Github organization containing the repository. Required if --vcs-provider=github is used.
      * @option visibility Visibility of the external repository (private or public). Only applies if --vcs-provider=github. Default is private.
+     * @option vcs-token Personal access token for the VCS provider. Only applies if --vcs-provider=gitlab.
      *
      * @usage <site> <label> <upstream> Creates a new Pantheon-hosted site named <site>, labeled <label>, using code from <upstream>.
      * @usage <site> <label> <upstream> --org=<org> Creates site associated with <organization>, with a Pantheon-hosted git repository.
@@ -141,9 +139,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotationData) {
         $vcs_provider = strtolower($input->getOption('vcs-provider'));
         $org_id = $input->getOption('org');
-        // $this->log()->debug('VCS provider: {vcs_provider}', ['vcs_provider' => $vcs_provider]);
 
-        // For example, if the user didn't provide --vcs-org, prompt them for it
+        // If the user didn't provide --vcs-org, prompt them for it.
         if ($vcs_provider !== 'pantheon' && empty($org_id)) {
             $organizations = [];
             $user = $this->session()->getUser();
@@ -602,7 +599,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                  throw new TerminusException('Cannot initiate new GitHub App installation: No authorization URL provided by the VCS service.');
             }
             try {
-                // handleNewInstallation will call handleGithubNewInstallation
                 $site_details = $this->handleNewInstallation($vcs_provider, $auth_url, $site_uuid, $options);
                 // Extract installation_id from site_details AFTER successful auth
                 $installation_id = $site_details['installation_id'] ?? null;
@@ -783,8 +779,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         // }
     }
 
-    // --- Helper methods adapted from RepositorySiteCreateCommand ---
-
     /**
      * Get site type as expected by ICR site creation API.
      * Uses the original upstream, not the ICR one.
@@ -792,23 +786,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     protected function getSiteType(Upstream $upstream): string
     {
         $framework = $upstream->get('framework');
+        if (empty($framework)) {
+            throw new TerminusException('Cannot determine site type for custom upstream without framework.');
+        }
         switch ($framework) {
-            // Assuming drupal10 maps to drupal8 for ICR type? Check API/upstream data.
-            case 'drupal10':
-            case 'drupal8': // Keep drupal8 for compatibility if needed
+            case 'drupal8':
                 return 'cms-drupal';
             case 'wordpress':
-            case 'wordpress_network': // Check if ICR handles multisite differently
+            case 'wordpress_network':
                 return 'cms-wordpress';
             case 'nodejs':
                 return 'nodejs';
-            // Add 'empty' or other types if needed
             default:
-                // Check if it's a custom upstream (no framework?)
-                if (empty($framework)) {
-                     // Need a way to determine type for custom upstreams if they are supported for eVCS
-                     throw new TerminusException('Cannot determine site type for custom upstream "{id}" without a framework.', ['id' => $upstream->id]);
-                }
                 throw new TerminusException('Framework {framework} not currently supported for external VCS site creation.', compact('framework'));
         }
     }
@@ -828,32 +817,19 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     /**
      * Get ICR upstream based on the framework.
      */
-    protected function getIcrUpstreamFromFramework(string $framework, User $user): Upstream
+    protected function getIcrUpstreamFromFramework(string $framework, $user): Upstream
     {
-        $icr_upstream_map = [
-            'drupal10' => 'drupal-icr', // Assuming drupal10 uses drupal-icr
-            'drupal8' => 'drupal-icr',
-            'wordpress' => 'wordpress-icr',
-            'wordpress_network' => 'wordpress-multisite-icr', // Check if this exists
-            'nodejs' => 'nodejs', // Nodejs might be its own ICR upstream? Check API.
-            // Add 'empty' mapping if needed: 'empty' => 'empty-icr' ?
-        ];
-
-        if (!isset($icr_upstream_map[$framework])) {
-             // Handle custom upstreams or unsupported frameworks
-            if (empty($framework)) {
-                // Maybe default to 'empty-icr' or throw error?
-                throw new TerminusException('Cannot determine ICR upstream for custom upstream without framework.');
-            }
-             throw new TerminusException('Framework {framework} does not have a corresponding ICR upstream defined.', compact('framework'));
-        }
-
-        $icr_upstream_id = $icr_upstream_map[$framework];
-
-        try {
-            return $user->getUpstreams()->get($icr_upstream_id);
-        } catch (TerminusNotFoundException $e) {
-            throw new TerminusException('Required ICR upstream "{id}" not found.', ['id' => $icr_upstream_id]);
+        switch ($framework) {
+            case 'drupal8':
+                return $user->getUpstreams()->get('drupal-icr');
+            case 'wordpress':
+                return $user->getUpstreams()->get('wordpress-icr');
+            case 'wordpress_network':
+                return $user->getUpstreams()->get('wordpress-multisite-icr');
+            case 'nodejs':
+                return $user->getUpstreams()->get('nodejs');
+            default:
+                throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
     }
 
@@ -862,8 +838,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      */
     protected function getUpstreamInformation(string $upstream_id, User $user): array
     {
-        // Use the *original* upstream ID passed by the user
-        $upstream = $user->getUpstreams()->get($upstream_id); // Already validated
+        $upstream = $user->getUpstreams()->get($upstream_id);
         $repo_url = $upstream->get('repository_url');
         $repo_branch = $upstream->get('repository_branch');
 
@@ -891,17 +866,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * Cleans up the Pantheon site record if creation fails mid-process.
      * Adapted from RepositorySiteCreateCommand::cleanup
      */
-    protected function cleanupPantheonSite(string $site_uuid, string $failure_reason): void
+    protected function cleanupPantheonSite(string $site_uuid, string $failure_reason, bool $cleanup_vcs = true): void
     {
         $this->log()->error('Site creation failed: {reason}', ['reason' => $failure_reason]);
-        $this->log()->notice("Attempting to clean up Pantheon site record (ID: {id})...", ['id' => $site_uuid]);
-        $exception = null;
-
-        // Note: The old cleanup also called $this->getVcsClient()->cleanupSiteDetails($site_uuid);
-        // Decide if this is still needed/desired. If the VCS service workflow failed early,
-        // there might not be anything to clean up there. If it failed after repo creation,
-        // cleaning up the VCS side might be complex (delete repo?).
-        // For now, focus on cleaning up the Pantheon site record.
+        $this->log()->notice("Attempting to clean up Pantheon site (ID: {id})...", ['id' => $site_uuid]);
 
         try {
             $site = $this->sites()->get($site_uuid);
@@ -912,6 +880,14 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 $this->processWorkflow($workflow);
                 $message = $workflow->getMessage();
                 $this->log()->notice('Pantheon site cleanup successful: {msg}', ['msg' => $message]);
+
+                if ($cleanup_vcs) {
+                    // Call VCS service cleanup if needed
+                    $this->log()->notice('Cleaning up VCS records in Pantheon...');
+                    $this->getVcsClient()->cleanupSiteDetails($site_uuid);
+                    $this->log()->notice('VCS records cleanup successful. You may need to manually delete the repository if it was created.');
+                }
+
             } else {
                  $this->log()->warning('Could not find site {id} to clean up (already deleted?).', ['id' => $site_uuid]);
             }
@@ -921,12 +897,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             // Catch potential errors during deletion workflow processing
             $exception = $t;
             $this->log()->error("Error during Pantheon site cleanup: {error_message}", ['error_message' => $t->getMessage()]);
-        }
-
-        // Re-throw exception if cleanup itself failed, otherwise the original failure reason is logged above.
-        if ($exception) {
-            // Wrap it to indicate it happened during cleanup
-            throw new TerminusException('An error occurred during site cleanup after a failure: {msg}', ['msg' => $exception->getMessage()], $exception);
+            throw new TerminusException('Error during Pantheon site cleanup: {error_message}', ['error_message' => $t->getMessage()]);
         }
     }
 
@@ -936,14 +907,14 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      */
     protected function handleNewInstallation(string $vcs_provider, string $auth_url, string $site_uuid, array $options): array
     {
-        if ($vcs_provider === 'github') {
-            return $this->handleGithubNewInstallation($auth_url, $site_uuid);
-        } else {
-            // Placeholder for other providers like GitLab if added later
-            $this->cleanupPantheonSite($site_uuid, "Unsupported VCS provider '{$vcs_provider}' for new installation flow.");
-            throw new TerminusException("New installation flow for VCS provider '{vcs-provider}' is not supported.", ['vcs-provider' => $vcs_provider]);
+        switch ($vcs) {
+            case 'github':
+                return $this->handleGithubNewInstallation($auth_url, $site_uuid);
+
+            case 'gitlab':
+                return $this->handleGitLabNewInstallation($site_uuid, $options);
         }
-        // The old command had specific GitLab logic using vcs_token, removed for now.
+        return [];
     }
 
     /**
@@ -952,7 +923,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      */
     protected function handleGithubNewInstallation(string $auth_url, string $site_uuid): array
     {
-        // Ensure auth_url is unquoted for opening
+        // Ensure auth_url is unquoted for opening in the browser.
         $url_to_open = trim($auth_url, '"');
 
         $this->log()->notice("Opening GitHub App authorization link in your browser...");
@@ -968,9 +939,11 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
              $this->log()->warning("Please open the URL manually: " . $url_to_open);
         }
 
-        $this->log()->notice("Waiting for authorization to complete in browser (up to 10 minutes)...");
+        $minutes = (int) (self::AUTH_LINK_TIMEOUT / 60);
+
+        $this->log()->notice(sprintf("Waiting for authorization to complete in browser (up to %d minutes)...", $minutes));
         // processSiteDetails polls the getSiteDetails endpoint until active or timeout
-        $site_details_response = $this->getVcsClient()->processSiteDetails($site_uuid, 600); // 600 seconds = 10 minutes
+        $site_details_response = $this->getVcsClient()->processSiteDetails($site_uuid, self::AUTH_LINK_TIMEOUT); // 600 seconds = 10 minutes
 
         $site_details = (array) ($site_details_response['data'][0] ?? []);
 
@@ -981,4 +954,73 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         return $site_details;
     }
-} // End of CreateCommand class
+
+    /**
+     * Handle GitLab new installation.
+     */
+    protected function handleGitLabNewInstallation(string $site_uuid, array $options): array
+    {
+        $token = $options['vcs-token'] ?? null;
+        if (empty($token) && !$this->input()->isInteractive()) {
+            throw new TerminusException('GitLab installation requires a token. Please provide --vcs-token or run interactively.');
+        }
+        if (empty($token)) {
+            // @TODO Write correct instructions.
+            $this->log()->notice('Get a GitLab access token. More details at https://docs.pantheon.io');
+
+            $helper = new QuestionHelper();
+            $question = new Question('Enter your GitLab token: ');
+            $question->setValidator(function ($answer) {
+                if (empty(trim($answer ?? ''))) {
+                    throw new \RuntimeException('GitLab token cannot be empty.');
+                }
+                return trim($answer);
+            });
+            $question->setMaxAttempts(3);
+            $question->setHidden(true);
+            $token = $helper->ask($this->input(), $this->output(), $question);
+        }
+
+        $question = new Question("Please enter the GitLab group name to create the repositories\n");
+        $question->setValidator(function ($answer) {
+            if ($answer == null || '' == trim($answer)) {
+                throw new TerminusException('Group name cannot be empty');
+            }
+            return $answer;
+        });
+        $question->setMaxAttempts(3);
+        $group_name = $helper->ask($this->input(), $this->output(), $question);
+        if (!$group_name) {
+            // Throw error because token cannot be empty.
+            throw new TerminusException('Group name cannot be empty');
+        }
+        $session = $this->session();
+        $user = $session->getUser();
+
+        $post_data = [
+            'token' => $token,
+            'vendor' => 2,
+            'installation_type' => 'cms-site',
+            'platform_user' => $user->id,
+            'site_uuid' => $site_uuid,
+            'vcs_organization' => $group_name,
+            // @TODO: What is this used for? Is it needed?
+            'pantheon_session' => $session->get('session'),
+        ];
+        $data = $this->getVcsClient()->installWithToken($post_data);
+        if (!$data['success']) {
+            throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
+        }
+
+        $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
+        $site_details = (array) $site_details['data'][0];
+
+        if (empty($site_details) || !($site_details['is_active'] ?? false)) {
+            // Don't cleanup here, let the caller handle cleanup based on this failure
+            throw new TerminusException('GitLab installation failed. Please try again and if the problem persists, contact support.');
+       }
+
+        return $site_details;
+    }
+
+}
