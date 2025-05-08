@@ -22,6 +22,7 @@ use Pantheon\Terminus\Commands\Site\SiteCommand;
 // For prompting
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Question\ChoiceQuestion;
+use Symfony\Component\Console\Question\Question;
 use Consolidation\AnnotatedCommand\AnnotationData;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -310,6 +311,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Starting creation process for site with external VCS ({vcs-provider})...', ['vcs-provider' => $options['vcs-provider']]);
 
         $input = $this->input(); // Get input object for checking global options
+        $output = $this->output(); // Get output object for prompts
+        $isInteractive = $input->isInteractive();
 
         $vcs_provider = strtolower($options['vcs-provider']); // Should be 'github' at this point
         $this->log()->debug('VCS provider: {vcs_provider}', ['vcs_provider' => $vcs_provider]);
@@ -368,7 +371,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $vcs_client = $this->getVcsClient(); // From VcsClientAwareTrait
         $vcs_workflow_response = null;
         $auth_url = null;
-        $existing_installations_raw = [];
+        $existing_installations_data = [];
         $vcs_workflow_uuid = null;
 
         try {
@@ -379,8 +382,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $data = (array) ($vcs_workflow_response['data'][0] ?? []);
             $vcs_workflow_uuid = $data['workflow_uuid'] ?? null;
             $this->log()->debug('VCS workflow UUID: {uuid}', ['uuid' => $vcs_workflow_uuid]);
-            $existing_installations_raw = $data['existing_installations'] ?? [];
-            $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($existing_installations_raw, true)]);
+            $existing_installations_data = $data['existing_installations'] ?? [];
+            $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($existing_installations_data, true)]);
 
             // Find the GitHub auth URL
             $auth_links = $data['vcs_auth_links'] ?? null;
@@ -392,7 +395,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             }
             $this->log()->debug('VCS auth URL: {url}', ['url' => $auth_url]);
 
-            if (empty($vcs_workflow_uuid) || (empty($auth_url) || $auth_url === '""') && empty($existing_installations_raw)) {
+            if (empty($vcs_workflow_uuid) || (empty($auth_url) || $auth_url === '""') && empty($existing_installations_data)) {
                  throw new TerminusException('VCS service did not return necessary workflow details (workflow_uuid, auth_url, or existing_installations).');
             }
             $this->log()->notice('VCS service workflow initiated successfully.');
@@ -404,20 +407,139 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             );
         }
 
-        $vcs_org_name = $options['vcs-org']; // The GitHub org name provided by the user
-        $this->log()->debug('VCS organization: {vcs_org}', ['vcs_org' => $vcs_org_name]);
+
+        $vcsOrgOpt = $options['vcs-org']; // The GitHub org name provided by the user
+
+
+        // $installations = []; // Map ID -> Installation Object
+        // $installationMap = []; // Map GH Org Name -> Installation ID
+        // if (!empty($existing_installations_data)) {
+        //     foreach ($existing_installations_data as $installation) {
+        //         // Filter for GitHub and backend installations
+        //         if (strtolower($installation->vendor) !== 'github' || $installation->installation_type == 'front-end') {
+        //             continue;
+        //         }
+        //         $installations[$installation->installation_id] = new Installation(
+        //             $installation->installation_id,
+        //             $installation->vendor,
+        //             $installation->login_name // GitHub Org Name
+        //         );
+        //         $installationMap[strtolower($installation->login_name)] = $installation->installation_id;
+        //     }
+        // }
+        //  $this->log()->debug('Found {count} existing GitHub installations for Org {org}: {names}', [
+        //     'count' => count($installations),
+        //     'org' => $pantheon_org->id,
+        //     'names' => implode(', ', array_keys($installationMap))
+        // ]);
+
+        // $this->log()->debug('Installation map: {map}', ['map' => print_r($installationMap, true)]);
+        // $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($installations, true)]);
+
+        // $installation_id_or_new = null;
+        // $vcsOrgName = null;
+
+
+        // // Check --vcs-org option first
+        // if (!is_null($vcsOrgOpt)) {
+        //     $vcsOrgLower = strtolower($vcsOrgOpt);
+        //     if (isset($installationMap[$vcsOrgLower])) {
+        //         $installation_id_or_new = $installationMap[$vcsOrgLower];
+        //         $vcsOrgName = $vcsOrgOpt; // Use the name provided by the user
+        //         $this->log()->debug('Using provided --vcs-org "{vcs_org}" matching existing installation ID {id}', [
+        //             'vcs_org' => $vcsOrgName,
+        //             'id' => $installation_id_or_new
+        //         ]);
+        //     } else {
+        //         // Provided org doesn't match existing. Treat as new unless non-interactive.
+        //         if (!$isInteractive) {
+        //             throw new TerminusException('--vcs-org "{vcs_org}" does not match an existing installation for Pantheon organization ID {org}. In non-interactive mode, you must provide a valid existing GitHub organization name.', ['vcs_org' => $vcsOrgOpt, 'org' => $pantheon_org->id]);
+        //         }
+        //         $this->log()->debug('Provided --vcs-org "{vcs_org}" does not match existing installations. Assuming new installation.', ['vcs_org' => $vcsOrgOpt]);
+        //         $installation_id_or_new = 'new';
+        //         $vcsOrgName = $vcsOrgOpt; // Use the name provided by the user
+        //     }
+        // } else {
+        //     // --vcs-org option was not provided
+        //     if (!$isInteractive) {
+        //         throw new TerminusException('--vcs-org is required when using --vcs=github in non-interactive mode.');
+        //     }
+
+        //     // Interactive mode, no --vcs-org provided
+        //     if (empty($installations)) {
+        //         $this->log()->notice('No existing GitHub installations found for this Pantheon organization. Proceeding to add a new one.');
+        //         // $helper = new QuestionHelper();
+        //         // $question = new Question('Enter the name of the GitHub organization to add: ');
+        //         // $question->setValidator(function ($answer) {
+        //         //     if (empty(trim($answer ?? ''))) {
+        //         //         throw new \RuntimeException('GitHub organization name cannot be empty.');
+        //         //     }
+        //         //     return trim($answer);
+        //         // });
+        //         // $vcsOrgName = $helper->ask($input, $output, $question);
+        //         $installation_id_or_new = 'new';
+        //     } else {
+        //         // Prompt user to choose from existing or add new
+        //         $choices = [];
+        //         foreach ($installations as $id => $inst) {
+        //             $choices[$inst->getLoginName()] = $id; // Display GH Org Name, map to ID
+        //         }
+        //         $addNewOption = 'Add to a different Github org';
+        //         $choices[$addNewOption] = 'new';
+
+        //         $helper = new QuestionHelper();
+        //         $question = new ChoiceQuestion(
+        //             'Which Github organization should be used?',
+        //             array_keys($choices)
+        //         );
+        //         $question->setErrorMessage('Invalid selection %s.');
+        //         $chosenName = $helper->ask($input, $output, $question);
+
+        //         $chosenId = $choices[$chosenName];
+        //         $this->log()->info('Selected GitHub organization option: {org}', ['org' => $chosenName]);
+
+        //         if ($chosenId === 'new') {
+        //             $installation_id_or_new = 'new';
+        //         } else {
+        //             // User chose an existing installation
+        //             $installation_id_or_new = $chosenId;
+        //             $vcsOrgName = $chosenName;
+        //         }
+        //     }
+        // }
+
+        // $this->log()->debug('Installation ID or new: {id}, vcsOrgName: {name}', [
+        //     'id' => $installation_id_or_new,
+        //     'name' => $vcsOrgName
+        // ]);
+
+        // // Ensure we have determined the installation ID and target org name
+        // if (is_null($installation_id_or_new) || is_null($vcsOrgName)) {
+        //      throw new TerminusException('Could not determine GitHub installation or organization name.');
+        // }
+        // $this->log()->debug('Determined Installation ID: {id}, Target GitHub Org: {name}', ['id' => $installation_id_or_new, 'name' => $vcsOrgName]);
+
+
+
+
+        // $this->cleanupPantheonSite($site_uuid, 'nevermind.');
+        // die();
+
+
+
+
 
 
         // 5. Handle GitHub App Installation / Authorization (using vcs-org)
-        $this->log()->notice('Checking GitHub App installations for organization: {vcs_org}', ['vcs_org' => $vcs_org_name]);
+        $this->log()->notice('Checking GitHub App installations for organization: {vcs_org}', ['vcs_org' => $vcsOrgOpt]);
         $installation_id = null;
         $site_details = null;
         $matching_installations = [];
 
-        if (!empty($existing_installations_raw)) {
-            foreach ($existing_installations_raw as $inst) {
+        if (!empty($existing_installations_data)) {
+            foreach ($existing_installations_data as $inst) {
                 // Filter for GitHub and matching organization login name
-                if (isset($inst->vendor) && $inst->vendor === 'github' && isset($inst->login_name) && strtolower($inst->login_name) === strtolower($vcs_org_name)) {
+                if (isset($inst->vendor) && $inst->vendor === 'github' && isset($inst->login_name) && strtolower($inst->login_name) === strtolower($vcsOrgOpt)) {
                     // Check installation type if available (prefer cms-site or backend?)
                     // The old code checked for 'front-end' and skipped it. Let's keep that.
                     if (isset($inst->installation_type) && $inst->installation_type == 'front-end') {
@@ -433,7 +555,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         $num_matches = count($matching_installations);
-        $this->log()->notice('Found {count} existing GitHub App installation(s) matching organization "{org}".', ['count' => $num_matches, 'org' => $vcs_org_name]);
+        $this->log()->notice('Found {count} existing GitHub App installation(s) matching organization "{org}".', ['count' => $num_matches, 'org' => $vcsOrgOpt]);
 
         if ($num_matches === 1) {
             // Exactly one match, use it
@@ -442,7 +564,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('Using existing installation ID: {id}', ['id' => $installation_id]);
         } elseif ($num_matches > 1) {
             // Multiple matches, prompt if interactive
-            if ($input->isInteractive()) {
+            if ($isInteractive) {
                 $helper = new QuestionHelper();
                 $question = new ChoiceQuestion(
                     'Multiple GitHub App installations found for organization "{org}". Please select the one to use:',
@@ -469,12 +591,12 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 $this->cleanupPantheonSite($site_uuid, 'Multiple GitHub installations found in non-interactive mode.');
                 throw new TerminusException(
                     'Multiple GitHub App installations found for organization "{org}" ({ids}). Please specify the correct one or run interactively.',
-                    ['org' => $vcs_org_name, 'ids' => $ids]
+                    ['org' => $vcsOrgOpt, 'ids' => $ids]
                 );
             }
         } else {
             // No matches, trigger new installation flow
-            $this->log()->notice('No existing installation found for "{org}". Initiating new installation flow.', ['org' => $vcs_org_name]);
+            $this->log()->notice('No existing installation found for "{org}". Initiating new installation flow.', ['org' => $vcsOrgOpt]);
             if (empty($auth_url) || $auth_url === '""') {
                  $this->cleanupPantheonSite($site_uuid, 'No existing installation found and no auth URL provided by VCS service.');
                  throw new TerminusException('Cannot initiate new GitHub App installation: No authorization URL provided by the VCS service.');
@@ -532,7 +654,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 6. Create Repository via go-vcs-service (repoCreate)
-        $this->log()->notice("Creating GitHub repository '{repo}' in organization '{org}'...", ['repo' => $site_name, 'org' => $vcs_org_name]);
+        $this->log()->notice("Creating GitHub repository '{repo}' in organization '{org}'...", ['repo' => $site_name, 'org' => $vcsOrgOpt]);
         $repo_create_data = [
             'site_uuid' => $site_uuid,
             'label' => $site_name, // Use site_name for the repo name
@@ -540,7 +662,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'is_private' => strtolower($options['visibility']) === 'private',
             // Explicitly set vendor_id based on backend expectation (GitHub = 1)
             'vendor_id' => ($vcs_provider === 'github') ? 1 : null, // Adjust if other providers are added
-            // 'vcs_organization' => $vcs_org_name, // Does repoCreate need the org name? Old code didn't send it. Check API. Assuming not needed for now.
+            // 'vcs_organization' => $vcsOrgOpt, // Does repoCreate need the org name? Old code didn't send it. Check API. Assuming not needed for now.
         ];
         // Validate vendor_id before proceeding
         if (is_null($repo_create_data['vendor_id'])) {
