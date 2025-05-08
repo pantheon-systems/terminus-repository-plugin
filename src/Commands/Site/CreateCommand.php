@@ -51,6 +51,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * Creates a new site
      *
      * @authorize
+     * @interact
      *
      * @command site:create
      * @aliases site-create
@@ -58,15 +59,15 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * @param string $site_name Site name (machine name)
      * @param string $label Site label (human-readable name)
      * @param string $upstream_id Upstream name or UUID (e.g., wordpress, drupal-composer-managed)
-     * @option org Organization name, label, or ID. Required if --vcs=github is used.
+     * @option org Organization name, label, or ID. Required if --vcs-provider=github is used.
      * @option region Specify the service region where the site should be created. See documentation for valid regions.
-     * @option vcs VCS provider for the site repository (e.g., github, pantheon). Default is pantheon.
-     * @option vcs-org Name of the Github organization containing the repository. Required if --vcs=github is used.
-     * @option visibility Visibility of the external repository (private or public). Only applies if --vcs=github. Default is private.
+     * @option vcs-provider VCS provider for the site repository (e.g., github, pantheon). Default is pantheon.
+     * @option vcs-org Name of the Github organization containing the repository. Required if --vcs-provider=github is used.
+     * @option visibility Visibility of the external repository (private or public). Only applies if --vcs-provider=github. Default is private.
      *
      * @usage <site> <label> <upstream> Creates a new Pantheon-hosted site named <site>, labeled <label>, using code from <upstream>.
      * @usage <site> <label> <upstream> --org=<org> Creates site associated with <organization>, with a Pantheon-hosted git repository.
-     * @usage <site> <label> <upstream> --org=<org> --vcs=github --vcs-org=<github-org> Creates a new site associated with Pantheon <organization>, using <upstream> code, with the repository hosted on Github in the <github-org> organization.
+     * @usage <site> <label> <upstream> --org=<org> --vcs-provider=github --vcs-org=<github-org> Creates a new site associated with Pantheon <organization>, using <upstream> code, with the repository hosted on Github in the <github-org> organization.
      *
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
@@ -79,14 +80,14 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $options = [
             'org' => null,
             'region' => null,
-            'vcs' => 'pantheon', // Default to pantheon for now - we can make this a required argument later
+            'vcs-provider' => 'pantheon', // Default to pantheon for now - we can make this a required argument later
             'vcs-org' => null,
             'visibility' => 'private',
             // Note: no-interaction is a global option, accessed via $this->input
         ]
     ) {
         $input = $this->input(); // Get input object for checking global options
-        $vcs_provider = strtolower($options['vcs']);
+        $vcs_provider = strtolower($options['vcs-provider']);
         $org_id = $options['org'];
         $vcs_org = $options['vcs-org']; // Renamed from installation_id
 
@@ -94,8 +95,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if (!in_array($vcs_provider, $this->vcs_providers)) {
             // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Exception message, not HTML output.
             throw new TerminusException(
-                'Invalid VCS provider specified: {vcs}. Supported providers are: {supported}',
-                ['vcs' => $vcs_provider, 'supported' => implode(', ', $this->vcs_providers)]
+                'Invalid VCS provider specified: {vcs-provider}. Supported providers are: {supported}',
+                ['vcs-provider' => $vcs_provider, 'supported' => implode(', ', $this->vcs_providers)]
             );
         }
 
@@ -108,8 +109,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($vcs_provider !== 'pantheon') {
             if (empty($org_id)) {
                 throw new TerminusException(
-                    'The --org option is required when using an external VCS provider (--vcs={vcs}).',
-                    ['vcs' => $vcs_provider]
+                    'The --org option is required when using an external VCS provider (--vcs-provider={vcs}).',
+                    ['vcs-provider' => $vcs_provider]
                 );
             }
             // Specific validation for GitHub
@@ -119,13 +120,13 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     // The prompt logic will be handled later if interactive.
                     if (!$input->isInteractive()) {
                          throw new TerminusException(
-                             'The --vcs-org option is required when using --vcs=github in non-interactive mode.'
+                             'The --vcs-org option is required when using --vcs-provider=github in non-interactive mode.'
                          );
                     }
 
                     // Interactive later, error out for now.
                      throw new TerminusException(
-                         'The --vcs-org option is required when using --vcs=github.'
+                         'The --vcs-org option is required when using --vcs-provider=github.'
                      );
                 }
             }
@@ -289,9 +290,9 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      */
     protected function createExternallyHostedSite($site_name, $label, Upstream $upstream, User $user, array $options)
     {
-        $this->log()->notice('Starting creation process for site with external VCS ({vcs})...', ['vcs' => $options['vcs']]);
+        $this->log()->notice('Starting creation process for site with external VCS ({vcs-provider})...', ['vcs-provider' => $options['vcs-provider']]);
         $input = $this->input(); // Get input object for checking global options
-        $vcs_provider = strtolower($options['vcs']); // Should be 'github' at this point
+        $vcs_provider = strtolower($options['vcs-provider']); // Should be 'github' at this point
         $vcs_org_name = $options['vcs-org']; // The GitHub org name provided by the user
         $org_id = $options['org']; // Pantheon Org ID/Name/Label
 
@@ -310,7 +311,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $preferred_platform = $this->getPreferredPlatformForFramework($site_type);
 
         // 3. Create Site Record in Pantheon
-        $this->log()->notice('Creating Pantheon site record (with external VCS flag)...');
+        $this->log()->notice('Creating Pantheon site ...');
         $workflow_options = [
             'label' => $label,
             'site_name' => $site_name,
@@ -786,7 +787,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         } else {
             // Placeholder for other providers like GitLab if added later
             $this->cleanupPantheonSite($site_uuid, "Unsupported VCS provider '{$vcs_provider}' for new installation flow.");
-            throw new TerminusException("New installation flow for VCS provider '{vcs}' is not supported.", ['vcs' => $vcs_provider]);
+            throw new TerminusException("New installation flow for VCS provider '{vcs-provider}' is not supported.", ['vcs-provider' => $vcs_provider]);
         }
         // The old command had specific GitLab logic using vcs_token, removed for now.
     }
