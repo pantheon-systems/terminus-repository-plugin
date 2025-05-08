@@ -9,30 +9,19 @@ use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Exceptions\TerminusNotFoundException; // Added for specific exception handling
 use Pantheon\Terminus\Helpers\Traits\WaitForWakeTrait;
 use Pantheon\Terminus\Models\Environment; // Needed for WaitForWake
-use Pantheon\Terminus\Models\Organization; // Needed for org handling
 use Pantheon\Terminus\Models\Upstream;
 use Pantheon\Terminus\Models\User;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareInterface;
-use Pantheon\Terminus\Site\SiteAwareTrait;
-use Pantheon\Terminus\Session\SessionAwareInterface; // Needed for SiteCommand base potentially
-use Pantheon\Terminus\Session\SessionAwareTrait;
-use Pantheon\Terminus\Config\ConfigAwareTrait; // Added for config access
 use Pantheon\Terminus\Helpers\LocalMachineHelper; // Added for browser opening
-
-// Dependencies from the old repository plugin command
-use Pantheon\TerminusRepository\VcsApi\Client; // Keep Client if directly used, otherwise remove if only via trait
 use Pantheon\TerminusRepository\VcsApi\Installation; // Keep for type hinting if used
 use Pantheon\TerminusRepository\VcsApi\VcsClientAwareTrait;
 use Pantheon\TerminusRepository\WorkflowWaitTrait;
-
 // Base SiteCommand from core (contains getSiteById etc.)
 use Pantheon\Terminus\Commands\Site\SiteCommand;
-
 // For prompting
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Question\ChoiceQuestion;
-use Symfony\Component\Console\Question\Question; // Keep if direct Question needed, maybe not
 
 /**
  * Creates a new site, potentially with an external Git repository.
@@ -47,6 +36,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
     // Traits needed for plugin functionality & dependencies
     use VcsClientAwareTrait; // Provides getVcsClient()
+
     // SiteAwareTrait is inherited from SiteCommand
     // SessionAwareTrait is inherited from SiteCommand
     // ConfigAwareTrait is inherited from SiteCommand
@@ -614,7 +604,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 $startTime,
                 $site,
                 'dev',
-                '', // $expectedWorkflowDescription
+                ' ', // $expectedWorkflowDescription
                 600, // maxWaitInSeconds - 10 minutes
                 null // $maxNotFoundAttempts
             );
