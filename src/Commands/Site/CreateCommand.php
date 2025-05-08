@@ -6,7 +6,6 @@ use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
 use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Exceptions\TerminusNotFoundException;
 use Pantheon\Terminus\Helpers\Traits\WaitForWakeTrait;
-use Pantheon\Terminus\Models\Environment;
 use Pantheon\Terminus\Models\Upstream;
 use Pantheon\Terminus\Models\User;
 use Pantheon\Terminus\Request\RequestAwareInterface;
@@ -200,18 +199,15 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $workflow_options = [
             'label' => $label,
             'site_name' => $site_name,
-            // 'has_external_vcs' => false, // Default is false, no need to set explicitly
         ];
 
-        // Region handling (copied from core)
         $region = $options['region'] ?? $this->config->get('command_site_options_region');
         if ($region) {
             $workflow_options['preferred_zone'] = $region;
             $this->log()->notice('Attempting to create site in region: {region}', compact('region'));
         }
 
-        // Organization handling (copied from core, improved error handling)
-        $org = null; // Initialize org variable
+        $org = null;
         if (!is_null($org_id = $options['org'])) {
             try {
                 // It's better to get the membership first, then the organization
@@ -245,7 +241,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Pantheon site record created successfully.');
 
         // Deploy the upstream CMS code
-        // Use getSiteById which is available via SiteCommand base class
         $site_id = $workflow->get('waiting_for_task')->site_id ?? null;
         if (!$site_id) {
              throw new TerminusException('Could not get site ID from site creation workflow.');
@@ -263,7 +258,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('Waiting for site dev environment to become available...');
             try {
                 $env = $site->getEnvironments()->get('dev');
-                if ($env instanceof Environment) {
+                if ($env) {
                     $this->waitForWake($env, $this->logger);
                     $this->log()->notice('Site dev environment is available.');
                     $this->log()->notice('---');
@@ -437,18 +432,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->debug('Installation map: {map}', ['map' => print_r($installations_map, true)]);
         $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($installations, true)]);
 
-        $installation_id_or_new = null;
+        $installation_id = null;
 
         // If vcs_org is provided, look it up in the installation map
         //   - If it matches an existing installation, use that; otherwise, assume the option was NOT provided
         // If vcs_org is NOT provided, present the user with a list of existing installations and the option for a new one.
         if ($vcs_org) {
             if (isset($installations_map[$vcs_org])) {
-                $installation_id_or_new = $installations_map[$vcs_org];
+                $installation_id = $installations_map[$vcs_org];
             }
         }
 
-        if (!$installation_id_or_new) {
+        if (!$installation_id) {
             // We need to prompt the user for a installation; either because vcs_org was not provided or it didn't match an existing installation.
             if (!$isInteractive) {
                 // Non-interactive mode, vcs_org not provided or not found
@@ -470,24 +465,29 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 $question->setErrorMessage('Invalid selection %s.');
                 $vcsOrgName = $helper->ask($input, $output, $question);
 
-                $installation_id_or_new = $choices[$vcsOrgName];
-                $installation_human_name = $installation_id_or_new === 'new' ? 'new' : $vcsOrgName;
+                $installation_id = $choices[$vcsOrgName];
+                $installation_human_name = 'new';
+
+                if ($installation_id !== 'new') {
+                    $installation_human_name = $vcsOrgName;
+                    $installation_id = $installations_map[strtolower($vcsOrgName)];
+                }
+
                 $this->log()->info('Selected to go with {installation} installation.', ['installation' => $installation_human_name]);
             } else {
                 // No existing installations found, prompt for new.
-                $installation_id_or_new = 'new';
+                $installation_id = 'new';
             }
         }
 
         // Ensure we have determined the installation ID and target org name
-        if (is_null($installation_id_or_new)) {
+        if (is_null($installation_id)) {
              throw new TerminusException('Could not determine GitHub installation.');
         }
 
-        $installation_id = null;
         $site_details = null;
 
-        if ($installation_id_or_new === 'new') {
+        if ($installation_id === 'new') {
             $site_details = $this->handleNewInstallation($vcs_provider, $auth_url, $site_uuid, $options);
             $installation_id = $site_details['installation_id'] ?? null;
         } else {
@@ -495,7 +495,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $authorize_data = [
                 'site_uuid' => $site_uuid,
                 'user_uuid' => $user->id,
-                'installation_id' => (int) $installation_id_or_new,
+                'installation_id' => (int) $installation_id,
                 'org_uuid' => $pantheon_org->id,
             ];
             try {
@@ -517,7 +517,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 6. Create Repository via go-vcs-service (repoCreate)
-        $this->log()->notice("Creating GitHub repository '{repo}'...", ['repo' => $site_name]);
+        $this->log()->notice("Creating repository '{repo}'...", ['repo' => $site_name]);
         $vcs_id = array_search($vcs_provider, $this->vcs_providers);
         $repo_create_data = [
             'site_uuid' => $site_uuid,
