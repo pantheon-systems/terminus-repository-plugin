@@ -753,7 +753,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      */
     protected function handleNewInstallation(string $vcs_provider, string $auth_url, string $site_uuid, array $options): array
     {
-        switch ($vcs) {
+        switch ($vcs_provider) {
             case 'github':
                 return $this->handleGithubNewInstallation($auth_url, $site_uuid);
 
@@ -789,11 +789,9 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         $this->log()->notice(sprintf("Waiting for authorization to complete in browser (up to %d minutes)...", $minutes));
         // processSiteDetails polls the getSiteDetails endpoint until active or timeout
-        $site_details_response = $this->getVcsClient()->processSiteDetails($site_uuid, self::AUTH_LINK_TIMEOUT); // 600 seconds = 10 minutes
+        $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, self::AUTH_LINK_TIMEOUT); // 600 seconds = 10 minutes
 
-        $site_details = (array) ($site_details_response['data'][0] ?? []);
-
-        if (empty($site_details) || !($site_details['is_active'] ?? false)) {
+        if (empty($site_details) || !$site_details['is_active']) {
              // Don't cleanup here, let the caller handle cleanup based on this failure
              throw new TerminusException('GitHub App authorization timed out or failed. Please check the browser window and try again.');
         }
