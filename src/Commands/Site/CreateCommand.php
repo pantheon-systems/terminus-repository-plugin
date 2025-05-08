@@ -24,6 +24,7 @@ use Pantheon\Terminus\Helpers\LocalMachineHelper; // Added for browser opening
 use Pantheon\TerminusRepository\VcsApi\Client; // Keep Client if directly used, otherwise remove if only via trait
 use Pantheon\TerminusRepository\VcsApi\Installation; // Keep for type hinting if used
 use Pantheon\TerminusRepository\VcsApi\VcsClientAwareTrait;
+use Pantheon\TerminusRepository\WorkflowWaitTrait;
 
 // Base SiteCommand from core (contains getSiteById etc.)
 use Pantheon\Terminus\Commands\Site\SiteCommand;
@@ -43,6 +44,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     // Traits from core CreateCommand
     use WorkflowProcessingTrait;
     use WaitForWakeTrait;
+    use WorkflowWaitTrait;
 
     // Traits needed for plugin functionality & dependencies
     use VcsClientAwareTrait; // Provides getVcsClient()
@@ -54,7 +56,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     // RequestAwareTrait is needed for VcsClientAwareTrait
 
     // Supported VCS types (can be expanded later)
-    protected $vcss = ['pantheon', 'github']; // Added 'pantheon'
+    protected $vcs_providers = ['pantheon', 'github', 'gitlab', 'bitbucket']; // Added 'pantheon'
 
     /**
      * Creates a new site
@@ -66,7 +68,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      *
      * @param string $site_name Site name (machine name)
      * @param string $label Site label (human-readable name)
-     * @param string $upstream_id Upstream name or UUID (e.g., wordpress, drupal10, empty-upstream)
+     * @param string $upstream_id Upstream name or UUID (e.g., wordpress, drupal-composer-managed)
      * @option org Organization name, label, or ID. Required if --vcs=github is used.
      * @option region Specify the service region where the site should be created. See documentation for valid regions.
      * @option vcs VCS provider for the site repository (e.g., github, pantheon). Default is pantheon.
@@ -88,7 +90,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $options = [
             'org' => null,
             'region' => null,
-            'vcs' => 'pantheon', // Default to pantheon
+            'vcs' => 'pantheon', // Default to pantheon for now - we can make this a required argument later
             'vcs-org' => null,
             'visibility' => 'private',
             // Note: no-interaction is a global option, accessed via $this->input
@@ -100,10 +102,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $vcs_org = $options['vcs-org']; // Renamed from installation_id
 
         // Validate VCS provider
-        if (!in_array($vcs_provider, $this->vcss)) {
+        if (!in_array($vcs_provider, $this->vcs_providers)) {
             throw new TerminusException(
                 'Invalid VCS provider specified: {vcs}. Supported providers are: {supported}',
-                ['vcs' => $vcs_provider, 'supported' => implode(', ', $this->vcss)]
+                ['vcs' => $vcs_provider, 'supported' => implode(', ', $this->vcs_providers)]
             );
         }
 
@@ -112,7 +114,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             throw new TerminusException('The site name {site_name} is already taken.', compact('site_name'));
         }
 
-        // Validate organization requirements for eVCS
+        // Validate eVCS Pantheon org requirement
         if ($vcs_provider !== 'pantheon') {
             if (empty($org_id)) {
                 throw new TerminusException(
@@ -130,17 +132,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                              'The --vcs-org option is required when using --vcs=github in non-interactive mode.'
                          );
                     }
-                    // If interactive, we might prompt later, so don't throw yet.
-                    // However, the requirement states it's required, so let's enforce for now.
+
+                    // Interactive later, error out for now.
                      throw new TerminusException(
                          'The --vcs-org option is required when using --vcs=github.'
                      );
                 }
             }
-            // Add validation for other VCS providers here if needed in the future
+
+            // Other VCS providers validation here
         }
 
-        // Get User and Upstream (common to both paths)
+        // Get User and Upstream
         $user = $this->session()->getUser();
         $upstream = $this->getValidatedUpstream($user, $upstream_id);
 
@@ -265,6 +268,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 }
             } catch (TerminusNotFoundException $e) {
                  $this->log()->warning('Dev environment not found immediately after site creation. It might still be provisioning.');
+                 $this->log()->debug('TerminusNotFoundException: {message}', ['message' => $e->getMessage()]);
             } catch (\Exception $e) {
                  $this->log()->error('An error occurred while waiting for the site to wake: {message}', ['message' => $e->getMessage()]);
             }
@@ -529,20 +533,21 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $site = $this->getSiteById($site_uuid); // Get the site object
         if (!$site) {
              // Should not happen if we got this far, but check.
-             $this->cleanupPantheonSite($site_uuid, 'Failed to retrieve Pantheon site object after VCS repo creation.');
+             $this->cleanupPantheonSite($site_uuid, 'Error while retrieving new site information after repo creation');
              throw new TerminusException('Failed to retrieve site object (ID: {id}) before deploying product.', ['id' => $site_uuid]);
         }
-        $this->log()->notice('Deploying Pantheon CMS resources (using ICR upstream: {icr_id})...', ['icr_id' => $icr_upstream->id]);
+        $this->log()->notice('Provisioning site resources...');
         try {
             $this->processWorkflow($site->deployProduct($icr_upstream->id));
-            $this->log()->notice('Pantheon CMS resources deployed successfully.');
+            $this->log()->notice('Site resources provisioned successfully.');
         } catch (\Throwable $e) {
-            // Don't necessarily clean up the whole site here, maybe just log?
             // The site exists, the repo exists, just the CMS deploy failed.
-            // Let's follow old logic: cleanup the site.
-            $this->cleanupPantheonSite($site_uuid, 'Failed to deploy CMS product after VCS repo creation.');
-            throw new TerminusException('Error deploying CMS product: {msg}', ['msg' => $e->getMessage()]);
+            $this->cleanupPantheonSite($site_uuid, 'Error occurred while provisioning site resources: {msg}', ['msg' => $e->getMessage()]);
+            throw new TerminusException('Error deploying product: {msg}', ['msg' => $e->getMessage()]);
         }
+
+        // Capture the timestamp before we push code, for use in workflow wait later
+        $startTime = time();
 
         // 8. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
         $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
@@ -590,6 +595,17 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('GitHub Repository: {url}', ['url' => $target_repo_url]);
         $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
         $this->log()->notice('---');
+
+        if ($preferred_platform === 'cos') {
+            $this->waitForWorkflow(
+                $startTime,
+                $site,
+                'dev',
+                '', // $expectedWorkflowDescription
+                600, // maxWaitInSeconds - 10 minutes
+                null // $maxNotFoundAttempts
+            );
+        }
 
         $this->log()->notice('Waiting for site dev environment to become available...');
         try {
