@@ -22,6 +22,9 @@ use Pantheon\Terminus\Commands\Site\SiteCommand;
 // For prompting
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Question\ChoiceQuestion;
+use Consolidation\AnnotatedCommand\AnnotationData;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Creates a new site, potentially with an external Git repository.
@@ -80,7 +83,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $options = [
             'org' => null,
             'region' => null,
-            'vcs-provider' => 'pantheon', // Default to pantheon for now - we can make this a required argument later
+            'vcs-provider' => 'pantheon',
             'vcs-org' => null,
             'visibility' => 'private',
             // Note: no-interaction is a global option, accessed via $this->input
@@ -113,25 +116,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     ['vcs-provider' => $vcs_provider]
                 );
             }
-            // Specific validation for GitHub
-            if ($vcs_provider === 'github') {
-                if (empty($vcs_org)) {
-                    // In non-interactive mode, it's definitely required.
-                    // The prompt logic will be handled later if interactive.
-                    if (!$input->isInteractive()) {
-                         throw new TerminusException(
-                             'The --vcs-org option is required when using --vcs-provider=github in non-interactive mode.'
-                         );
-                    }
-
-                    // Interactive later, error out for now.
-                     throw new TerminusException(
-                         'The --vcs-org option is required when using --vcs-provider=github.'
-                     );
-                }
-            }
-
-            // Other VCS providers validation here
         }
 
         // Get User and Upstream
@@ -146,6 +130,39 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->createExternallyHostedSite($site_name, $label, $upstream, $user, $options);
         }
     }
+
+
+    /**
+     * Prompts for the Pantheon organization if not provided and VCS provider is not Pantheon.
+     *
+     * @hook interact site:create
+     */
+    public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotationData) {
+        $vcs_provider = strtolower($input->getOption('vcs-provider'));
+        $org_id = $input->getOption('org');
+        // $this->log()->debug('VCS provider: {vcs_provider}', ['vcs_provider' => $vcs_provider]);
+
+        // For example, if the user didn't provide --vcs-org, prompt them for it
+        if ($vcs_provider !== 'pantheon' && empty($org_id)) {
+            $organizations = [];
+            $user = $this->session()->getUser();
+            $orgs = $user->getOrganizationMemberships()->all();
+            foreach ($orgs as $org) {
+                $organization = $org->getOrganization();
+                $organizations[$organization->id] = $organization->getLabel();
+            }
+
+            $helper = new QuestionHelper();
+            $question = new ChoiceQuestion(
+                'Please specify the Pantheon organization name:',
+                $organizations,
+            );
+            $question->setErrorMessage('Invalid selection.');
+            $chosen_org = $helper->ask($input, $output, $question);
+            $input->setOption('org', $chosen_org);
+        }
+    }
+
 
     /**
      * Validates the upstream ID and returns the Upstream object.
@@ -291,13 +308,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     protected function createExternallyHostedSite($site_name, $label, Upstream $upstream, User $user, array $options)
     {
         $this->log()->notice('Starting creation process for site with external VCS ({vcs-provider})...', ['vcs-provider' => $options['vcs-provider']]);
+
         $input = $this->input(); // Get input object for checking global options
+
         $vcs_provider = strtolower($options['vcs-provider']); // Should be 'github' at this point
-        $vcs_org_name = $options['vcs-org']; // The GitHub org name provided by the user
+        $this->log()->debug('VCS provider: {vcs_provider}', ['vcs_provider' => $vcs_provider]);
+
         $org_id = $options['org']; // Pantheon Org ID/Name/Label
+        $this->log()->debug('Pantheon organization ID: {org_id}', ['org_id' => $org_id]);
 
         // 1. Get Pantheon Organization (already validated that $org_id is set)
         try {
+            // TODO: cache organizations rather than fetching them every time we need them
             $membership = $user->getOrganizationMemberships()->get($org_id);
             $pantheon_org = $membership->getOrganization();
         } catch (TerminusNotFoundException $e) {
@@ -356,15 +378,19 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             // Normalize data and extract key info
             $data = (array) ($vcs_workflow_response['data'][0] ?? []);
             $vcs_workflow_uuid = $data['workflow_uuid'] ?? null;
+            $this->log()->debug('VCS workflow UUID: {uuid}', ['uuid' => $vcs_workflow_uuid]);
             $existing_installations_raw = $data['existing_installations'] ?? [];
+            $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($existing_installations_raw, true)]);
 
             // Find the GitHub auth URL
             $auth_links = $data['vcs_auth_links'] ?? null;
+            $this->log()->debug('VCS auth links: {links}', ['links' => print_r($auth_links, true)]);
             if (isset($auth_links->github_app)) {
                  $auth_url = sprintf('"%s"', $auth_links->github_app);
             } elseif (isset($auth_links->github_oauth)) { // Fallback, though app is preferred
                  $auth_url = sprintf('"%s"', $auth_links->github_oauth);
             }
+            $this->log()->debug('VCS auth URL: {url}', ['url' => $auth_url]);
 
             if (empty($vcs_workflow_uuid) || (empty($auth_url) || $auth_url === '""') && empty($existing_installations_raw)) {
                  throw new TerminusException('VCS service did not return necessary workflow details (workflow_uuid, auth_url, or existing_installations).');
@@ -377,6 +403,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 ['error_message' => $t->getMessage()]
             );
         }
+
+        $vcs_org_name = $options['vcs-org']; // The GitHub org name provided by the user
+        $this->log()->debug('VCS organization: {vcs_org}', ['vcs_org' => $vcs_org_name]);
+
 
         // 5. Handle GitHub App Installation / Authorization (using vcs-org)
         $this->log()->notice('Checking GitHub App installations for organization: {vcs_org}', ['vcs_org' => $vcs_org_name]);
