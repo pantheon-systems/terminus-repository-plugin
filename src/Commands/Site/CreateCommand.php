@@ -178,7 +178,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     $this->log()->warning('Could not retrieve list of available upstreams.');
                 }
             } catch (\Exception $listError) {
-                 $this->log()->warning('Could not retrieve list of available upstreams: {msg}', ['msg' => $listError->getMessage()]);
+                $this->log()->warning(
+                    'Could not retrieve list of available upstreams: {msg}',
+                    ['msg' => $listError->getMessage()]
+                );
             }
             // Throw the final exception indicating the specific upstream wasn't found
             throw new TerminusException('Invalid upstream "{upstream}" specified.', ['upstream' => $upstream_id]);
@@ -220,10 +223,16 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     'org_id' => $org->id,
                 ]);
             } catch (TerminusNotFoundException $e) {
-                 throw new TerminusException('Organization "{org}" not found or you are not a member.', ['org' => $org_id]);
+                throw new TerminusException(
+                    'Organization "{org}" not found or you are not a member.',
+                    ['org' => $org_id]
+                );
             } catch (\Exception $e) {
-                 // Catch other potential errors during org fetching
-                 throw new TerminusException('Error retrieving organization "{org}": {message}', ['org' => $org_id, 'message' => $e->getMessage()]);
+                // Catch other potential errors during org fetching
+                throw new TerminusException(
+                    'Error retrieving organization "{org}": {message}',
+                    ['org' => $org_id, 'message' => $e->getMessage()]
+                );
             }
         } else {
              $this->log()->notice('Site will be owned by the current user: {email}', ['email' => $user->get('email')]);
@@ -263,13 +272,20 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     $this->log()->notice('---');
                 } else {
                     // This case should ideally not happen if the site exists
-                    $this->log()->warning('Could not retrieve the dev environment object after site creation, unable to confirm availability.');
+                    $this->log()->warning(
+                        'Could not retrieve the dev environment information, unable to confirm availability.'
+                    );
                 }
             } catch (TerminusNotFoundException $e) {
-                 $this->log()->warning('Dev environment not found immediately after site creation. It might still be provisioning.');
+                 $this->log()->warning(
+                     'Dev environment not found immediately after site creation. It might still be provisioning.'
+                 );
                  $this->log()->debug('TerminusNotFoundException: {message}', ['message' => $e->getMessage()]);
             } catch (\Exception $e) {
-                 $this->log()->error('An error occurred while waiting for the site to wake: {message}', ['message' => $e->getMessage()]);
+                $this->log()->error(
+                    'An error occurred while waiting for the site to wake: {message}',
+                    ['message' => $e->getMessage()]
+                );
             }
         } else {
             // This shouldn't happen if the create workflow succeeded and returned an ID, but good to handle.
