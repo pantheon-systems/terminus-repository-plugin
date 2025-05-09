@@ -624,7 +624,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 10. Wait for workflow and site to wake.
-        if ($$upstream->get('framework') !== 'nodejs') {
+        if ($upstream->get('framework') !== 'nodejs') {
             $this->log()->notice('Waiting for sync code workflow to succeed...');
             try {
                 $this->waitForWorkflow($wf_start_time, $site, 'dev', '', 600, 10);
