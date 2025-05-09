@@ -81,7 +81,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $vcs_provider = strtolower($options['vcs-provider']);
         $org_id = $options['org'];
 
-        // @TODO: Kevin - Rename camelCase local variables to snake_case for consistency.
         // @TODO: Kevin - Break as much as possible from evcs site creation into smaller functions.
 
         // Validate VCS provider
@@ -126,7 +125,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      *
      * @hook interact site:create
      */
-    public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotationData)
+    public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotation_data)
     {
         $vcs_provider = strtolower($input->getOption('vcs-provider'));
         $org_id = $input->getOption('org');
@@ -175,10 +174,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 } else {
                     $this->log()->warning('Could not retrieve list of available upstreams.');
                 }
-            } catch (\Exception $listError) {
+            } catch (\Exception $list_error) {
                 $this->log()->warning(
                     'Could not retrieve list of available upstreams: {msg}',
-                    ['msg' => $listError->getMessage()]
+                    ['msg' => $list_error->getMessage()]
                 );
             }
             // Throw the final exception indicating the specific upstream wasn't found
@@ -298,7 +297,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         $input = $this->input();
         $output = $this->output();
-        $isInteractive = $input->isInteractive();
+        $is_interactive = $input->is_interactive();
 
         // Should be 'github/gitlab/bitbucket'.
         $vcs_provider = strtolower($options['vcs-provider']);
@@ -446,7 +445,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         if (!$installation_id) {
             // We need to prompt the user for a installation; either because vcs_org was not provided or it didn't match an existing installation.
-            if (!$isInteractive) {
+            if (!$is_interactive) {
                 // Non-interactive mode, vcs_org not provided or not found
                 throw new TerminusException('--vcs-org is required to match an existing installation in non-interactive mode when --vcs-provider is not Pantheon.');
             }
@@ -464,14 +463,14 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     array_keys($choices)
                 );
                 $question->setErrorMessage('Invalid selection %s.');
-                $vcsOrgName = $helper->ask($input, $output, $question);
+                $vcs_org_name = $helper->ask($input, $output, $question);
 
-                $installation_id = $choices[$vcsOrgName];
+                $installation_id = $choices[$vcs_org_name];
                 $installation_human_name = 'new';
 
                 if ($installation_id !== 'new') {
-                    $installation_human_name = $vcsOrgName;
-                    $installation_id = $installations_map[strtolower($vcsOrgName)];
+                    $installation_human_name = $vcs_org_name;
+                    $installation_id = $installations_map[strtolower($vcs_org_name)];
                 }
 
                 $this->log()->info('Selected to go with {installation} installation.', ['installation' => $installation_human_name]);
@@ -588,7 +587,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 9. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
-        $wfStartTime = time();
+        $wf_start_time = time();
         $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
         try {
             [$upstream_repo_url, $upstream_repo_branch] = $this->getUpstreamInformation($upstream->id, $user);
@@ -621,7 +620,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         // 10. Wait for workflow and site to wake.
         $this->log()->notice('Waiting for sync code workflow to succeed...');
-        $this->waitForWorkflow($wfStartTime, $site, 'dev', '', 600, 10);
+        $this->waitForWorkflow($wf_start_time, $site, 'dev', '', 600, 10);
 
         // @TODO Abstract this into a separate method.
         // Wait for site to wake up (copied from core)
@@ -832,7 +831,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     protected function handleGitLabNewInstallation(string $site_uuid, array $options): array
     {
         $token = $options['vcs-token'] ?? null;
-        if (empty($token) && !$this->input()->isInteractive()) {
+        if (empty($token) && !$this->input()->is_interactive()) {
             throw new TerminusException('GitLab installation requires a token. Please provide --vcs-token or run interactively.');
         }
         if (empty($token)) {
