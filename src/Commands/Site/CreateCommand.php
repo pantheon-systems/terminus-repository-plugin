@@ -39,6 +39,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     // Supported VCS types (can be expanded later)
     protected $vcs_providers = ['pantheon', 'github', 'gitlab', 'bitbucket'];
 
+    protected $memberships = [];
+
     /**
      * Creates a new site
      *
@@ -186,6 +188,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
     }
 
+    /**
+     * Get user/org membership.
+     */
+    protected function getMembership(User $user, string $org_id)
+    {
+        if (!empty($this->memberships[$user->id][$org_id])) {
+            return $this->memberships[$user->id][$org_id];
+        }
+        $this->memberships[$user->id][$org_id] = $user->getOrganizationMemberships()->get($org_id);
+        return $this->memberships[$user->id][$org_id];
+    }
+
 
     /**
      * Handles creation of a standard Pantheon-hosted site.
@@ -211,7 +225,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($org_id !== null) {
             try {
                 // It's better to get the membership first, then the organization
-                $membership = $user->getOrganizationMemberships()->get($org_id);
+                $membership = $this->getMembership($user, $org_id);
                 $org = $membership->getOrganization();
                 $workflow_options['organization_id'] = $org->id;
                 $this->log()->notice('Associating site with organization: {org_label} ({org_id})', [
@@ -317,8 +331,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         // 1. Get Pantheon Organization.
         try {
-            // TODO: cache organizations rather than fetching them every time we need them
-            $membership = $user->getOrganizationMemberships()->get($org_id);
+            $membership = $this->getMembership($user, $org_id);
             $pantheon_org = $membership->getOrganization();
         } catch (TerminusNotFoundException $e) {
             // This should have been caught earlier, but double-check
