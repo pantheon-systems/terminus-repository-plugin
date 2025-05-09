@@ -263,7 +263,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     /**
      * Wait for dev environment to be ready to handle traffic.
      */
-    protected function waitForEnvironment(Site $site)
+    protected function waitForDevEnvironment(Site $site)
     {
         $this->log()->notice('Waiting for site dev environment to become available...');
         try {
