@@ -305,7 +305,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         $input = $this->input();
         $output = $this->output();
-        $is_interactive = $input->is_interactive();
+        $is_interactive = $input->isInteractive();
 
         // Should be 'github/gitlab/bitbucket'.
         $vcs_provider = strtolower($options['vcs-provider']);
@@ -816,7 +816,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     protected function handleGitLabNewInstallation(string $site_uuid, array $options): array
     {
         $token = $options['vcs-token'] ?? null;
-        if (empty($token) && !$this->input()->is_interactive()) {
+        if (empty($token) && !$this->input()->isInteractive()) {
             throw new TerminusException('GitLab installation requires a token. Please provide --vcs-token or run interactively.');
         }
         if (empty($token)) {
