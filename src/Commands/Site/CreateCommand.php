@@ -80,7 +80,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     ) {
         $vcs_provider = strtolower($options['vcs-provider']);
         $org_id = $options['org'];
-        $vcs_org = $options['vcs-org'];
 
         // @TODO: Kevin - Rename camelCase local variables to snake_case for consistency.
         // @TODO: Kevin - Break as much as possible from evcs site creation into smaller functions.
@@ -208,7 +207,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         $org = null;
-        if (!is_null($org_id = $options['org'])) {
+        $org_id = $options['org'];
+        if ($org_id !== null) {
             try {
                 // It's better to get the membership first, then the organization
                 $membership = $user->getOrganizationMemberships()->get($org_id);
@@ -553,7 +553,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 $webhook_data = [
                     'repository' => $site_name,
                     'vendor' => $vcs_provider,
-                    'workflow_uuid' => $workflow_uuid,
+                    'workflow_uuid' => $vcs_workflow_uuid,
                     'site_uuid' => $site_uuid,
                 ];
                 $data = $this->getVcsClient()->installWebhook($webhook_data);
@@ -769,7 +769,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
              $this->log()->warning('Could not find site {id} to clean up (already deleted?).', ['id' => $site_uuid]);
         } catch (\Throwable $t) {
             // Catch potential errors during deletion workflow processing
-            $exception = $t;
             $this->log()->error("Error during Pantheon site cleanup: {error_message}", ['error_message' => $t->getMessage()]);
             throw new TerminusException('Error during Pantheon site cleanup: {error_message}', ['error_message' => $t->getMessage()]);
         }

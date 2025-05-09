@@ -130,7 +130,7 @@ trait WorkflowWaitTrait
                 break;
             }
 
-            $notFoundAttempts++;
+            $not_found_attempts++;
         } while (empty($workflow));
 
         // If we get here, we have a workflow that is not finished.
