@@ -624,11 +624,34 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 10. Wait for workflow and site to wake.
-        $this->log()->notice('Waiting for sync code workflow to succeed...');
-        $this->waitForWorkflow($wf_start_time, $site, 'dev', '', 600, 10);
+        if ($$upstream->get('framework') !== 'nodejs') {
+            $this->log()->notice('Waiting for sync code workflow to succeed...');
+            try {
+                $this->waitForWorkflow($wf_start_time, $site, 'dev', '', 600, 10);
+            } catch (TerminusException $e) {
+                // If the workflow fails, the site and repo exist, but code isn't there.
+                // Don't delete the site. Log a warning and the repo URL.
+                $this->log()->warning(
+                    'Error waiting for sync code workflow to succeed: {error_message}',
+                    ['error_message' => $e->getMessage()]
+                );
+                $this->log()->warning('The site and repository have been created, but the sync_code workflow was not found; check for its completion in the Pantheon Dashboard.');
+            }
+            // Wait for the dev environment to be ready.
+            try {
+                $this->waitForDevEnvironment($site);
+            } catch (TerminusException $e) {
+                // If the dev environment fails to wake, log a warning.
+                $this->log()->warning(
+                    'Error waiting for dev environment to wake: {error_message}',
+                    ['error_message' => $e->getMessage()]
+                );
+                $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
+            }
+        }
 
-        // Wait for the dev environment to be ready.
-        $this->waitForDevEnvironment($site);
+        // TODO: Implement proper wait for nodejs workflow to succeed.
+
 
         // 11. Final Success Message & Wait for Wake
         $this->log()->notice('---');
