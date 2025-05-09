@@ -54,9 +54,8 @@ jobs:
             value: 8.2
       max-parallel: 3
     env:
-      TERMINUS_ALLOW_UNSUPPORTED_NEWER_PHP: true
-      TERMINUS_VERSION: 3.6.0
-      TERMINUS_SITE_NAME: test-icr-${{ github.run_id }}-${{ matrix.php-versions.name }}
+      TERMINUS_VERSION: 4.0.0
+      TERMINUS_SITE_NAME_SUFFIX: ${{ github.run_id }}-${{ matrix.php-versions.name }}
       WORKSPACE: ${{ github.workspace }}
     needs:
       - checkout_build
@@ -94,4 +93,4 @@ jobs:
         run: chmod +x ./tests/functional.sh && ./tests/functional.sh
       - name: Cleanup
         if: success()
-        run: terminus site:delete -y ${{ env.TERMINUS_SITE_NAME }}
+        run: chmod +x ./tests/cleanup.sh && ./tests/cleanup.sh
