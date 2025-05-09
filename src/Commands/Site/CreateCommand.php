@@ -32,8 +32,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     use VcsClientAwareTrait;
 
     // Wait time for GitHub app installation to succeed.
-    const AUTH_LINK_TIMEOUT = 600;
-    const ADD_NEW_ORG_TEXT = 'Add to a new org';
+    protected const AUTH_LINK_TIMEOUT = 600;
+    protected const ADD_NEW_ORG_TEXT = 'Add to a new org';
 
     // Supported VCS types (can be expanded later)
     protected $vcs_providers = ['pantheon', 'github', 'gitlab', 'bitbucket'];

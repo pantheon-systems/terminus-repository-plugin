@@ -8,7 +8,6 @@ use Pantheon\Terminus\Exceptions\TerminusException;
 
 trait WorkflowWaitTrait
 {
-
     /**
      * TODO: Move this to terminus core WorkflowProcessingTrait.
      * @param Workflow $model A workflow to run
@@ -87,7 +86,7 @@ trait WorkflowWaitTrait
         }
         $not_found_attempts = 0;
         $workflows = $site->getWorkflows();
-        
+
         do {
             $current_time = time();
             if ($max_not_found_attempts && $not_found_attempts === $max_not_found_attempts) {
