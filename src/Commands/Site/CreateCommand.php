@@ -2,7 +2,6 @@
 
 namespace Pantheon\TerminusRepository\Commands\Site;
 
-use Pantheon\Terminus\Commands\WorkflowProcessingTrait;
 use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Exceptions\TerminusNotFoundException;
 use Pantheon\Terminus\Helpers\Traits\WaitForWakeTrait;
@@ -28,7 +27,6 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAwareInterface
 {
-    use WorkflowProcessingTrait;
     use WaitForWakeTrait;
     use WorkflowWaitTrait;
     use VcsClientAwareTrait;
