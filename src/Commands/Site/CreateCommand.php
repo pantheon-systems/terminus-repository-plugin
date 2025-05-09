@@ -82,8 +82,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $vcs_provider = strtolower($options['vcs-provider']);
         $org_id = $options['org'];
 
-        // @TODO: Kevin - Break as much as possible from evcs site creation into smaller functions.
-
         // Validate VCS provider
         if (!in_array($vcs_provider, $this->vcs_providers)) {
             throw new TerminusException(
@@ -317,7 +315,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         // 1. Get Pantheon Organization.
         try {
-            // TODO: cache organizations rather than fetching them every time we need them
             $membership = $user->getOrganizationMemberships()->get($org_id);
             $pantheon_org = $membership->getOrganization();
         } catch (TerminusNotFoundException $e) {
