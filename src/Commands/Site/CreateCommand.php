@@ -859,8 +859,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'platform_user' => $user->id,
             'site_uuid' => $site_uuid,
             'vcs_organization' => $group_name,
-            // @TODO: What is this used for? Is it needed?
-            'pantheon_session' => $session->get('session'),
+            // TODO: Cleanup in go-vcs-service to not need it.
+            'pantheon_session' => 'UNUSED',
         ];
         $data = $this->getVcsClient()->installWithToken($post_data);
         if (!$data['success']) {
