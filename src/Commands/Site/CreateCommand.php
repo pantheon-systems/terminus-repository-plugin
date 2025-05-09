@@ -127,7 +127,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      *
      * @hook interact site:create
      */
-    public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotationData) {
+    public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotationData)
+    {
         $vcs_provider = strtolower($input->getOption('vcs-provider'));
         $org_id = $input->getOption('org');
 
@@ -427,7 +428,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'count' => count($installations),
             'org' => $pantheon_org->id,
             'names' => implode(', ', array_keys($installations_map))
-        ]);
+         ]);
 
         $this->log()->debug('Installation map: {map}', ['map' => print_r($installations_map, true)]);
         $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($installations, true)]);
@@ -599,7 +600,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 'upstream_repo_url' => $upstream_repo_url,
                 'upstream_repo_branch' => $upstream_repo_branch,
                 'installation_id' => (string) $installation_id,
-                'organization_id' => $pantheon_org->id, 
+                'organization_id' => $pantheon_org->id,
                 'vendor_id' => $vcs_id,
             ];
 
@@ -619,7 +620,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 10. Wait for workflow and site to wake.
-        // @TODO HERE!!!
         $this->log()->notice('Waiting for sync code workflow to succeed...');
         $this->waitForWorkflow($wfStartTime, $site, 'dev', '', 600, 10);
 
@@ -762,7 +762,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     $this->getVcsClient()->cleanupSiteDetails($site_uuid);
                     $this->log()->notice('VCS records cleanup successful. You may need to manually delete the repository if it was created.');
                 }
-
             } else {
                  $this->log()->warning('Could not find site {id} to clean up (already deleted?).', ['id' => $site_uuid]);
             }
@@ -891,9 +890,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if (empty($site_details) || !($site_details['is_active'] ?? false)) {
             // Don't cleanup here, let the caller handle cleanup based on this failure
             throw new TerminusException('GitLab installation failed. Please try again and if the problem persists, contact support.');
-       }
+        }
 
         return $site_details;
     }
-
 }
