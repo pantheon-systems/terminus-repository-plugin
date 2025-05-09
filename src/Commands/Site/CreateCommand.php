@@ -7,6 +7,7 @@ use Pantheon\Terminus\Exceptions\TerminusNotFoundException;
 use Pantheon\Terminus\Helpers\Traits\WaitForWakeTrait;
 use Pantheon\Terminus\Models\Upstream;
 use Pantheon\Terminus\Models\User;
+use Pantheon\Terminus\Models\Site;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Helpers\LocalMachineHelper;
@@ -253,38 +254,45 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->processWorkflow($site->deployProduct($upstream->id));
             $this->log()->notice('CMS deployed successfully.');
 
-            // @TODO: Abstract this into a separate method.
-            // Wait for site to wake up (copied from core)
-            $this->log()->notice('Waiting for site dev environment to become available...');
-            try {
-                $env = $site->getEnvironments()->get('dev');
-                if ($env) {
-                    $this->waitForWake($env, $this->logger);
-                    $this->log()->notice('Site dev environment is available.');
-                    $this->log()->notice('---');
-                    $this->log()->notice('Site "{site}" created successfully!', ['site' => $site->getName()]);
-                    $this->log()->notice('Dashboard: {url}', ['url' => $site->dashboardUrl()]);
-                    $this->log()->notice('---');
-                } else {
-                    // This case should ideally not happen if the site exists
-                    $this->log()->warning(
-                        'Could not retrieve the dev environment information, unable to confirm availability.'
-                    );
-                }
-            } catch (TerminusNotFoundException $e) {
-                 $this->log()->warning(
-                     'Dev environment not found immediately after site creation. It might still be provisioning.'
-                 );
-                 $this->log()->debug('TerminusNotFoundException: {message}', ['message' => $e->getMessage()]);
-            } catch (\Exception $e) {
-                $this->log()->error(
-                    'An error occurred while waiting for the site to wake: {message}',
-                    ['message' => $e->getMessage()]
-                );
-            }
+            // Finally, wait for the dev environment to be ready.
+            $this->waitForDevEnvironment($site);
         } else {
             // This shouldn't happen if the create workflow succeeded and returned an ID, but good to handle.
             throw new TerminusException('Failed to retrieve site object (ID: {id}) after creation workflow succeeded.', ['id' => $site_id]);
+        }
+    }
+
+    /**
+     * Wait for dev environment to be ready to handle traffic.
+     */
+    protected function waitForEnvironment(Site $site)
+    {
+        $this->log()->notice('Waiting for site dev environment to become available...');
+        try {
+            $env = $site->getEnvironments()->get('dev');
+            if ($env) {
+                $this->waitForWake($env, $this->logger);
+                $this->log()->notice('Site dev environment is available.');
+                $this->log()->notice('---');
+                $this->log()->notice('Site "{site}" created successfully!', ['site' => $site->getName()]);
+                $this->log()->notice('Dashboard: {url}', ['url' => $site->dashboardUrl()]);
+                $this->log()->notice('---');
+            } else {
+                // This case should ideally not happen if the site exists
+                $this->log()->warning(
+                    'Could not retrieve the dev environment information, unable to confirm availability.'
+                );
+            }
+        } catch (TerminusNotFoundException $e) {
+             $this->log()->warning(
+                 'Dev environment not found immediately after site creation. It might still be provisioning.'
+             );
+             $this->log()->debug('TerminusNotFoundException: {message}', ['message' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            $this->log()->error(
+                'An error occurred while waiting for the site to wake: {message}',
+                ['message' => $e->getMessage()]
+            );
         }
     }
 
@@ -622,31 +630,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Waiting for sync code workflow to succeed...');
         $this->waitForWorkflow($wf_start_time, $site, 'dev', '', 600, 10);
 
-        // @TODO Abstract this into a separate method.
-        // Wait for site to wake up (copied from core)
-        $this->log()->notice('Waiting for site dev environment to become available...');
-        try {
-            $env = $site->getEnvironments()->get('dev');
-            if ($env) {
-                $this->waitForWake($env, $this->logger);
-                $this->log()->notice('Site dev environment is available.');
-            } else {
-                // This case should ideally not happen if the site exists
-                $this->log()->warning(
-                    'Could not retrieve the dev environment information, unable to confirm availability.'
-                );
-            }
-        } catch (TerminusNotFoundException $e) {
-             $this->log()->warning(
-                 'Dev environment not found immediately after site creation. It might still be provisioning.'
-             );
-             $this->log()->debug('TerminusNotFoundException: {message}', ['message' => $e->getMessage()]);
-        } catch (\Exception $e) {
-            $this->log()->error(
-                'An error occurred while waiting for the site to wake: {message}',
-                ['message' => $e->getMessage()]
-            );
-        }
+        // Wait for the dev environment to be ready.
+        $this->waitForDevEnvironment($site);
 
         // 11. Final Success Message & Wait for Wake
         $this->log()->notice('---');
