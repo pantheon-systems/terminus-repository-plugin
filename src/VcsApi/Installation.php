@@ -4,7 +4,6 @@ namespace Pantheon\TerminusRepository\VcsApi;
 
 class Installation
 {
-
     /**
      * @var string
      */

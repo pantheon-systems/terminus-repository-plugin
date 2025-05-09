@@ -40,7 +40,7 @@ jobs:
       - name: PHPCompatibility
         uses: pantheon-systems/phpcompatibility-action@v1
         with:
-          test-versions: 7.4-8.3
+          test-versions: 8.2-8.4
           paths: ${{ github.workspace }}/src
   functional:
     runs-on: ${{ matrix.operating-system }}
@@ -50,10 +50,8 @@ jobs:
       matrix:
         operating-system: [ 'macos-latest' ]
         php-versions:
-          - name: 74
-            value: 7.4
-          - name: 81
-            value: 8.1
+          - name: 82
+            value: 8.2
       max-parallel: 3
     env:
       TERMINUS_ALLOW_UNSUPPORTED_NEWER_PHP: true
