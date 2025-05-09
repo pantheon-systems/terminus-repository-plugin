@@ -74,7 +74,7 @@ trait WorkflowWaitTrait
             if (!$found) {
                 $notFoundAttempts++;
                 $this->log()->notice(
-                    "Current workflow is '{current}'; waiting for '{expected}'",
+                    "Latest workflow is '{current}'; waiting for '{expected}'",
                     ['current' => $firstWorkflowDescription, 'expected' => $expectedWorkflowDescription]
                 );
                 if ($maxNotFoundAttempts && $notFoundAttempts === $maxNotFoundAttempts) {
