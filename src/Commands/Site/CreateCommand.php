@@ -7,6 +7,7 @@ use Pantheon\Terminus\Exceptions\TerminusNotFoundException;
 use Pantheon\Terminus\Helpers\Traits\WaitForWakeTrait;
 use Pantheon\Terminus\Models\Upstream;
 use Pantheon\Terminus\Models\User;
+use Pantheon\Terminus\Models\Site;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Helpers\LocalMachineHelper;
@@ -81,9 +82,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $vcs_provider = strtolower($options['vcs-provider']);
         $org_id = $options['org'];
 
-        // @TODO: Kevin - Rename camelCase local variables to snake_case for consistency.
-        // @TODO: Kevin - Break as much as possible from evcs site creation into smaller functions.
-
         // Validate VCS provider
         if (!in_array($vcs_provider, $this->vcs_providers)) {
             throw new TerminusException(
@@ -126,7 +124,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      *
      * @hook interact site:create
      */
-    public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotationData)
+    public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotation_data)
     {
         $vcs_provider = strtolower($input->getOption('vcs-provider'));
         $org_id = $input->getOption('org');
@@ -175,10 +173,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 } else {
                     $this->log()->warning('Could not retrieve list of available upstreams.');
                 }
-            } catch (\Exception $listError) {
+            } catch (\Exception $list_error) {
                 $this->log()->warning(
                     'Could not retrieve list of available upstreams: {msg}',
-                    ['msg' => $listError->getMessage()]
+                    ['msg' => $list_error->getMessage()]
                 );
             }
             // Throw the final exception indicating the specific upstream wasn't found
@@ -254,38 +252,45 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->processWorkflow($site->deployProduct($upstream->id));
             $this->log()->notice('CMS deployed successfully.');
 
-            // @TODO: Abstract this into a separate method.
-            // Wait for site to wake up (copied from core)
-            $this->log()->notice('Waiting for site dev environment to become available...');
-            try {
-                $env = $site->getEnvironments()->get('dev');
-                if ($env) {
-                    $this->waitForWake($env, $this->logger);
-                    $this->log()->notice('Site dev environment is available.');
-                    $this->log()->notice('---');
-                    $this->log()->notice('Site "{site}" created successfully!', ['site' => $site->getName()]);
-                    $this->log()->notice('Dashboard: {url}', ['url' => $site->dashboardUrl()]);
-                    $this->log()->notice('---');
-                } else {
-                    // This case should ideally not happen if the site exists
-                    $this->log()->warning(
-                        'Could not retrieve the dev environment information, unable to confirm availability.'
-                    );
-                }
-            } catch (TerminusNotFoundException $e) {
-                 $this->log()->warning(
-                     'Dev environment not found immediately after site creation. It might still be provisioning.'
-                 );
-                 $this->log()->debug('TerminusNotFoundException: {message}', ['message' => $e->getMessage()]);
-            } catch (\Exception $e) {
-                $this->log()->error(
-                    'An error occurred while waiting for the site to wake: {message}',
-                    ['message' => $e->getMessage()]
-                );
-            }
+            // Finally, wait for the dev environment to be ready.
+            $this->waitForDevEnvironment($site);
         } else {
             // This shouldn't happen if the create workflow succeeded and returned an ID, but good to handle.
             throw new TerminusException('Failed to retrieve site object (ID: {id}) after creation workflow succeeded.', ['id' => $site_id]);
+        }
+    }
+
+    /**
+     * Wait for dev environment to be ready to handle traffic.
+     */
+    protected function waitForDevEnvironment(Site $site)
+    {
+        $this->log()->notice('Waiting for site dev environment to become available...');
+        try {
+            $env = $site->getEnvironments()->get('dev');
+            if ($env) {
+                $this->waitForWake($env, $this->logger);
+                $this->log()->notice('Site dev environment is available.');
+                $this->log()->notice('---');
+                $this->log()->notice('Site "{site}" created successfully!', ['site' => $site->getName()]);
+                $this->log()->notice('Dashboard: {url}', ['url' => $site->dashboardUrl()]);
+                $this->log()->notice('---');
+            } else {
+                // This case should ideally not happen if the site exists
+                $this->log()->warning(
+                    'Could not retrieve the dev environment information, unable to confirm availability.'
+                );
+            }
+        } catch (TerminusNotFoundException $e) {
+             $this->log()->warning(
+                 'Dev environment not found immediately after site creation. It might still be provisioning.'
+             );
+             $this->log()->debug('TerminusNotFoundException: {message}', ['message' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            $this->log()->error(
+                'An error occurred while waiting for the site to wake: {message}',
+                ['message' => $e->getMessage()]
+            );
         }
     }
 
@@ -298,7 +303,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         $input = $this->input();
         $output = $this->output();
-        $isInteractive = $input->isInteractive();
+        $is_interactive = $input->isInteractive();
 
         // Should be 'github/gitlab/bitbucket'.
         $vcs_provider = strtolower($options['vcs-provider']);
@@ -310,7 +315,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         // 1. Get Pantheon Organization.
         try {
-            // TODO: cache organizations rather than fetching them every time we need them
             $membership = $user->getOrganizationMemberships()->get($org_id);
             $pantheon_org = $membership->getOrganization();
         } catch (TerminusNotFoundException $e) {
@@ -446,7 +450,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         if (!$installation_id) {
             // We need to prompt the user for a installation; either because vcs_org was not provided or it didn't match an existing installation.
-            if (!$isInteractive) {
+            if (!$is_interactive) {
                 // Non-interactive mode, vcs_org not provided or not found
                 throw new TerminusException('--vcs-org is required to match an existing installation in non-interactive mode when --vcs-provider is not Pantheon.');
             }
@@ -464,14 +468,14 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     array_keys($choices)
                 );
                 $question->setErrorMessage('Invalid selection %s.');
-                $vcsOrgName = $helper->ask($input, $output, $question);
+                $vcs_org_name = $helper->ask($input, $output, $question);
 
-                $installation_id = $choices[$vcsOrgName];
+                $installation_id = $choices[$vcs_org_name];
                 $installation_human_name = 'new';
 
                 if ($installation_id !== 'new') {
-                    $installation_human_name = $vcsOrgName;
-                    $installation_id = $installations_map[strtolower($vcsOrgName)];
+                    $installation_human_name = $vcs_org_name;
+                    $installation_id = $installations_map[strtolower($vcs_org_name)];
                 }
 
                 $this->log()->info('Selected to go with {installation} installation.', ['installation' => $installation_human_name]);
@@ -588,7 +592,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 9. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
-        $wfStartTime = time();
+        $wf_start_time = time();
         $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
         try {
             [$upstream_repo_url, $upstream_repo_branch] = $this->getUpstreamInformation($upstream->id, $user);
@@ -620,34 +624,34 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 10. Wait for workflow and site to wake.
-        $this->log()->notice('Waiting for sync code workflow to succeed...');
-        $this->waitForWorkflow($wfStartTime, $site, 'dev', '', 600, 10);
-
-        // @TODO Abstract this into a separate method.
-        // Wait for site to wake up (copied from core)
-        $this->log()->notice('Waiting for site dev environment to become available...');
-        try {
-            $env = $site->getEnvironments()->get('dev');
-            if ($env) {
-                $this->waitForWake($env, $this->logger);
-                $this->log()->notice('Site dev environment is available.');
-            } else {
-                // This case should ideally not happen if the site exists
+        if ($upstream->get('framework') !== 'nodejs') {
+            $this->log()->notice('Waiting for sync code workflow to succeed...');
+            try {
+                $this->waitForWorkflow($wf_start_time, $site, 'dev', '', 600, 10);
+            } catch (TerminusException $e) {
+                // If the workflow fails, the site and repo exist, but code isn't there.
+                // Don't delete the site. Log a warning and the repo URL.
                 $this->log()->warning(
-                    'Could not retrieve the dev environment information, unable to confirm availability.'
+                    'Error waiting for sync code workflow to succeed: {error_message}',
+                    ['error_message' => $e->getMessage()]
                 );
+                $this->log()->warning('The site and repository have been created, but the sync_code workflow was not found; check for its completion in the Pantheon Dashboard.');
             }
-        } catch (TerminusNotFoundException $e) {
-             $this->log()->warning(
-                 'Dev environment not found immediately after site creation. It might still be provisioning.'
-             );
-             $this->log()->debug('TerminusNotFoundException: {message}', ['message' => $e->getMessage()]);
-        } catch (\Exception $e) {
-            $this->log()->error(
-                'An error occurred while waiting for the site to wake: {message}',
-                ['message' => $e->getMessage()]
-            );
+            // Wait for the dev environment to be ready.
+            try {
+                $this->waitForDevEnvironment($site);
+            } catch (TerminusException $e) {
+                // If the dev environment fails to wake, log a warning.
+                $this->log()->warning(
+                    'Error waiting for dev environment to wake: {error_message}',
+                    ['error_message' => $e->getMessage()]
+                );
+                $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
+            }
         }
+
+        // TODO: Implement proper wait for nodejs workflow to succeed.
+
 
         // 11. Final Success Message & Wait for Wake
         $this->log()->notice('---');
@@ -875,8 +879,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'platform_user' => $user->id,
             'site_uuid' => $site_uuid,
             'vcs_organization' => $group_name,
-            // @TODO: What is this used for? Is it needed?
-            'pantheon_session' => $session->get('session'),
+            // TODO: Cleanup in go-vcs-service to not need it.
+            'pantheon_session' => 'UNUSED',
         ];
         $data = $this->getVcsClient()->installWithToken($post_data);
         if (!$data['success']) {
