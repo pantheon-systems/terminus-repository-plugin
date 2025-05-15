@@ -35,6 +35,15 @@ class ResumeBuildCommand extends TerminusCommand implements SiteAwareInterface, 
      */
     public function resumeBuilds($site)
     {
+        // User confirmation of experimental command
+        if (
+            !$this->confirm(
+                'This command is experimental and not intended for regular use. Are you sure you want to proceed?'
+            )
+        ) {
+            return;
+        }
+
         $site_env = "{$site}.dev";
         $this->requireSiteIsNotFrozen($site_env);
         $site = $this->getSiteById($site_env);
