@@ -581,6 +581,17 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
              $this->cleanupPantheonSite($site_uuid, 'Error while retrieving new site information after repo creation');
              throw new TerminusException('Failed to retrieve site object (ID: {id}) before deploying product.', ['id' => $site_uuid]);
         }
+
+        if ($preferred_platform == "sta") {
+            try {
+                $this->log()->notice('Waiting for project to be ready for the next step...');
+                $this->getVcsClient()->processProjectReady($site_uuid, 600);
+            } catch (TerminusException $e) {
+                $this->log()->warning("Error while waiting for project ready: {error_message}", ['error_message' => $e->getMessage()]);
+                $this->log()->warning("Moving on to the next step, but this may cause issues with platform domain assignment.");
+            }
+        }
+
         $this->log()->notice('Provisioning site resources...');
         try {
             $this->processWorkflow($site->deployProduct($icr_upstream->id));
