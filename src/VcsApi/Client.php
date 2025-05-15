@@ -199,7 +199,7 @@ class Client implements ConfigAwareInterface
             'method' => 'GET',
         ];
 
-        return $this->requestApi('site-details/' . $site_id . '/project-ready', $request_options);
+        return $this->requestApi(sprintf('site-details/%s/project-ready', $site_id), $request_options);
     }
 
     /**
