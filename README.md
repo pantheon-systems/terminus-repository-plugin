@@ -2,44 +2,34 @@
 
 [![Early Access](https://img.shields.io/badge/Pantheon-Early_Access-yellow?logo=pantheon&color=FFDC28)](https://docs.pantheon.io/oss-support-levels#early-access)
 
-A Terminus plugin to manage eVCS Sites in Pantheon.
+This Terminus plugin configure directs integration between individual Pantheon sites and individual Github repositories via [Pantheon's GitHub Application](https://docs.pantheon.io/github-application).
+This plugin will eventually handle direct integration with other Git providers, such as GitLab and Bitbucket.
 
-Adds command 'repository:site:create' to Terminus and a modified version of 'env:deploy' to support eVCS Sites.
+To set up the GitHub Application this plugin provides the command 'repository:site:create'  and a modified version of 'env:deploy'.
 
 ## Installation
 
-To install this plugin using Terminus 3:
+To install this plugin using Terminus 3 or later, run the following command:
+
 ```
 terminus self:plugin:install terminus-repository-plugin
 ```
 
-or clone from the repo and then:
 
-```
-terminus self:plugin:install <path-to-plugin-folder>
-```
+## Private Beta
 
-## About eVCS Sites
+Pantheon's GitHub Application is currently in Private Beta. To get access, fill in [this form](https://forms.gle/GQqrfrkVWd3ghU8j8) and we will contact you soon.
 
-Git has become an essential part of developer's life and it is super common these days for development teams to do their day to day work using git collaboration tools like [GitHub](https://github.com/), [GitLab](https://gitlab.org/) or [BitBucket](https://bitbucket.org/).
+## Feedback and support
 
-Pantheon was created with git as a core component of the platform but until now there have been no native solution to integrate with external repositories. The closer to that we have is [Build Tools](https://github.com/pantheon-systems/terminus-build-tools-plugin) but this is a solution that puts some burden in customers to manage it.
+Prior to General Availability, support for this plugin is handled directly by the product team instead of our regular support channels.
+Use the issue queue on this repository to report bugs, request features or provide general feedback.
 
-eVCS Sites comes to close this gap by offering a solution for our customers to be able to manage their code wherever they want (GitHub only supported initially) and easily integrate it with our platform.
+## Using the GitHub Application
 
-## Getting access to eVCS Sites
+### Creating a New Site
 
-This product is currently in Private Beta. To get access, fill in [this form](https://forms.gle/GQqrfrkVWd3ghU8j8) and we will contact you soon.
-
-## Getting support for eVCS Sites
-
-As mentioned in our [documentation](https://docs.pantheon.io), support for Alpha products is handled by the product team using the ways provided to you in the onboarding materials.
-
-## Using eVCS Sites
-
-### Creating an eVCS Site
-
-Once the plugin has been installed, you should execute a command like this to create your first eVCS Site:
+Once the plugin has been installed, you should execute a command like this to create a site:
 
 ```
 terminus repository:site:create <site_name> <label> <upstream> "<your-organization>"
@@ -51,33 +41,29 @@ Some other options available:
 - region: Pantheon region for your site
 - installation_id: If you already have one installation and want to reuse it for the new site
 
-Once you run this command, the site creation process will start. You will be prompted to install the GitHub application (or reuse an existing installation) to be able to manage your external repository. Follow through the steps in the provided GitHub link and once you do that, the site creation process will continue and will eventually create a repository (named after your site name) in the provided GitHub account (support for using existing repository will come at a later stage).
+Once you run this command, the site creation process will start. You will be prompted to install the GitHub Application (or reuse an existing installation) to be able to manage your external repository. Follow through the steps in the provided GitHub link and once you do that, the site creation process will continue and will eventually create a repository (named after your site name) in the provided GitHub account (support for using existing repository will come at a later stage).
 
 ### Pull Requests and Multidevs
 
-[Multidevs](https://docs.pantheon.io/guides/multidev) are a core product at Pantheon. If your organization has access to Multidevs; you can leverage them easily in eVCS Sites by using Pull Requests in your repository:
+[Multidevs](https://docs.pantheon.io/guides/multidev) are a core product at Pantheon. If your organization has access to Multidevs; you can leverage them through the Application by using Pull Requests in your repository:
 
 - When you create or reopen a Pull Request, a Multidev environment will be created at Pantheon.
 - When you update your open Pull Request, the associated Multidev will be updated.
 - When you close or merge a Pull Request, the associated Multidev will be deleted.
 
-Please note that initially, eVCS Sites won't be subject of the 10 Multidevs limit that we have at Pantheon but we are planning on implementing automatic deletion of dormant Multidevs for these sites.
+Please note that initially, sites connect to the GitHub Applicaiton won't be subject of the 10 Multidevs limit that we have at Pantheon but we are planning on implementing automatic deletion of dormant Multidevs for these sites.
 
-### Deployments for eVCS Sites
+### Deployment to Test or Live Environments
 
-The eVCS Sites Terminus plugin includes a modified version of the `env:deploy` command; so to deploy to test or live environments during this alpha stage, you will need this plugin. It won't affect your ability to deploy to other Pantheon sites.
+This Terminus plugin includes a modified version of the `env:deploy` command; so to deploy to test or live environments.
 
-While having the plugin installed, you can deploy using Terminus as usual. Deploying from the dashboard is not supported at this moment.
+While having the plugin installed, you can deploy using Terminus as usual. Deploying from the dashboard is not yet supported for site using the GitHub Application.
 
 ### Status and logs of my code pushes
 
 If you want to follow your code pushes; you can do so through the dashboard usual [Workflow Logs](https://docs.pantheon.io/workflow-logs) functionality.
 
-## Giving feedback to the eVCS Site steam
-
-Your feedback for this product is really important to shape the future of it; please do not hesitate to provide your feedback by following the instructions provided in the onboarding materials.
-
-## Testing
+## Testing of the plugin itself
 This example project includes four testing targets:
 
 * `composer lint`: Syntax-check all php source files.
