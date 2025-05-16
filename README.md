@@ -2,10 +2,10 @@
 
 [![Early Access](https://img.shields.io/badge/Pantheon-Early_Access-yellow?logo=pantheon&color=FFDC28)](https://docs.pantheon.io/oss-support-levels#early-access)
 
-This Terminus plugin configure directs integration between individual Pantheon sites and individual Github repositories via [Pantheon's GitHub Application](https://docs.pantheon.io/github-application).
+This Terminus plugin configure directs integration between individual Pantheon sites and individual GitHub repositories via [Pantheon's GitHub Application](https://docs.pantheon.io/github-application).
 This plugin will eventually handle direct integration with other Git providers, such as GitLab and Bitbucket.
 
-To set up the GitHub Application this plugin provides the command 'repository:site:create' and a modified version of 'env:deploy'.
+To set up the GitHub Application this plugin provides the command `repository:site:create` and a modified version of `env:deploy`.
 
 ## Installation
 
@@ -14,10 +14,6 @@ To install this plugin using Terminus 3 or later, run the following command:
 ```
 terminus self:plugin:install terminus-repository-plugin
 ```
-
-## Private Beta
-
-Pantheon's GitHub Application is currently in Private Beta. To get access, fill in [this form](https://forms.gle/GQqrfrkVWd3ghU8j8) and we will contact you soon.
 
 ## Feedback and support
 
@@ -36,11 +32,14 @@ terminus repository:site:create <site_name> <label> <upstream> "<your-organizati
 
 Some other options available:
 
-- visibility: whether to make the repo "public" or "private" (default: private)
-- region: Pantheon region for your site
-- installation_id: If you already have one installation and want to reuse it for the new site
+- `visibility`: whether to make the repo "public" or "private" (default: private).
+- `region`: Pantheon region for your site.
+- `installation_id`: If you already have one installation and want to reuse it for the new site.
 
-Once you run this command, the site creation process will start. You will be prompted to install the GitHub Application (or reuse an existing installation) to be able to manage your external repository. Follow through the steps in the provided GitHub link and once you do that, the site creation process will continue and will eventually create a repository (named after your site name) in the provided GitHub account (support for using existing repository will come at a later stage).
+Once you run this command, the site creation process will start. You will be prompted to install the GitHub Application to be able to manage your external repository.
+Follow through the steps in the provided GitHub link and once you do that, the site creation process will continue and will eventually create a repository (named after your site name) in the provided GitHub account.
+On subsequent site creations, you will be able to select the previously configured GitHub account/organization or configure a new one.
+
 
 ### Pull Requests and Multidevs
 
@@ -61,6 +60,10 @@ While having the plugin installed, you can deploy using Terminus as usual. Deplo
 ### Status and logs of my code pushes
 
 If you want to follow your code pushes; you can do so through the dashboard usual [Workflow Logs](https://docs.pantheon.io/workflow-logs) functionality.
+
+## Private Beta
+
+Pantheon's GitHub Application is currently in Private Beta. To get access, fill in [this form](https://forms.gle/GQqrfrkVWd3ghU8j8) and we will contact you soon.
 
 ## Testing of the plugin itself
 This example project includes four testing targets:
