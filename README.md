@@ -66,6 +66,7 @@ If you want to follow your code pushes; you can do so through the dashboard usua
 Pantheon's GitHub Application is currently in Private Beta. To get access, fill in [this form](https://forms.gle/GQqrfrkVWd3ghU8j8) and we will contact you soon.
 
 ## Testing of the plugin itself
+
 This example project includes four testing targets:
 
 * `composer lint`: Syntax-check all php source files.
