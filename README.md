@@ -5,7 +5,7 @@
 This Terminus plugin configure directs integration between individual Pantheon sites and individual Github repositories via [Pantheon's GitHub Application](https://docs.pantheon.io/github-application).
 This plugin will eventually handle direct integration with other Git providers, such as GitLab and Bitbucket.
 
-To set up the GitHub Application this plugin provides the command 'repository:site:create'  and a modified version of 'env:deploy'.
+To set up the GitHub Application this plugin provides the command 'repository:site:create' and a modified version of 'env:deploy'.
 
 ## Installation
 
@@ -14,7 +14,6 @@ To install this plugin using Terminus 3 or later, run the following command:
 ```
 terminus self:plugin:install terminus-repository-plugin
 ```
-
 
 ## Private Beta
 
