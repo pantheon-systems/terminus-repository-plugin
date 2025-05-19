@@ -49,13 +49,13 @@ On subsequent site creations, you will be able to select the previously configur
 - When you update your open Pull Request, the associated Multidev will be updated.
 - When you close or merge a Pull Request, the associated Multidev will be deleted.
 
-Please note that initially, sites connect to the GitHub Applicaiton won't be subject of the 10 Multidevs limit that we have at Pantheon but we are planning on implementing automatic deletion of dormant Multidevs for these sites.
+Please note that initially, sites connect to the GitHub Application won't be subject of the 10 Multidevs limit that we have at Pantheon but we are planning on implementing automatic deletion of dormant Multidevs for these sites.
 
 ### Deployment to Test or Live Environments
 
 This Terminus plugin includes a modified version of the `env:deploy` command; so to deploy to test or live environments.
 
-While having the plugin installed, you can deploy using Terminus as usual. Deploying from the dashboard is not yet supported for site using the GitHub Application.
+While having the plugin installed, you can deploy using Terminus as usual. Deploying from the dashboard is not yet supported for sites using the GitHub Application.
 
 ### Status and logs of my code pushes
 
