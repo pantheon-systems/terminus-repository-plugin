@@ -23,7 +23,7 @@ terminus self:plugin:install <path-to-plugin-folder>
 
 Git has become an essential part of developer's life and it is super common these days for development teams to do their day to day work using git collaboration tools like [GitHub](https://github.com/), [GitLab](https://gitlab.org/) or [BitBucket](https://bitbucket.org/).
 
-Pantheon was created with git as a core component of the platform but until now there have been no native solution to integrate with external repositories. The closer to that we have is [Build Tools](https://github.com/pantheon-systems/terminus-build-tools-plugin) but this is a solution that puts some burden in customers to manage it.
+Pantheon was created with git as a core component of the platform but until now there have been no native solution to integrate with external repositories. The closest to that we have is [Build Tools](https://github.com/pantheon-systems/terminus-build-tools-plugin) but this is a solution that puts some burden on customers to manage it.
 
 eVCS Sites comes to close this gap by offering a solution for our customers to be able to manage their code wherever they want (GitHub only supported initially) and easily integrate it with our platform.
 
