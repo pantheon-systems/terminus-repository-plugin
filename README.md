@@ -5,7 +5,7 @@
 This Terminus plugin configure directs integration between individual Pantheon sites and individual GitHub repositories via [Pantheon's GitHub Application](https://docs.pantheon.io/github-application).
 This plugin will eventually handle direct integration with other Git providers, such as GitLab and Bitbucket.
 
-To set up the GitHub Application this plugin provides the command `repository:site:create` and a modified version of `env:deploy`.
+To set up the GitHub Application this plugin enhance the commands `site:create` and `env:deploy` with additional functionality.
 
 ## Installation
 
@@ -24,17 +24,20 @@ Use the issue queue on this repository to report bugs, request features or provi
 
 ### Creating a New Site
 
-Once the plugin has been installed, you should execute a command like this to create a site:
+Once the plugin has been installed, you can run `site:create` with additional options to create a site using external version control:
 
 ```
-terminus repository:site:create <site_name> <label> <upstream> "<your-organization>"
+terminus site:create <site_name> <label> <upstream> --vcs-provider=github --org=<your-organization>
 ```
+
+- `vcs-provider`: Specifies where the site repository should be hosted.  Current options are `github` or `pantheon`.
+- `org`: This parameter is _required_ if specifying a `--vcs-provider` other than "pantheon".
 
 Some other options available:
 
 - `visibility`: whether to make the repo "public" or "private" (default: private).
 - `region`: Pantheon region for your site.
-- `installation_id`: If you already have one installation and want to reuse it for the new site.
+- `vcs-org`: If you've already set up a Pantheon site and want to create another one with the same Github organization, you can specify that organization using this option.
 
 Once you run this command, the site creation process will start. You will be prompted to install the GitHub Application to be able to manage your external repository.
 Follow through the steps in the provided GitHub link and once you do that, the site creation process will continue and will eventually create a repository (named after your site name) in the provided GitHub account.
@@ -79,4 +82,4 @@ Note that prior to running the tests, you should first run:
 * `composer install`
 
 ## Help
-Run `terminus help repository:site-create` for help.
+Run `terminus help site-create` for help.
