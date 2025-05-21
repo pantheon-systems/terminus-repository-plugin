@@ -118,14 +118,33 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
     }
 
-
     /**
-     * Prompts for the Pantheon organization if not provided and VCS provider is not Pantheon.
+     * Prompts for required options depending on the ones that were passed.
      *
      * @hook interact site:create
      */
-    public function promptForRequiredOrg(InputInterface $input, OutputInterface $output, AnnotationData $annotation_data)
+    public function promptForRequired(InputInterface $input, OutputInterface $output, AnnotationData $annotation_data)
     {
+        $original_provider = $input->getOption('vcs-provider');
+        if ($original_provider === 'pantheon') {
+            $upstream_id = $input->getArgument('upstream_id');
+            $user = $this->session()->getUser();
+            $upstream = $this->getValidatedUpstream($user, $upstream_id);
+
+            if ($upstream->get('framework') === 'nodejs') {
+                $helper = new QuestionHelper();
+                $question = new ChoiceQuestion(
+                    'Node.js sites cannot be created with Pantheon-hosted repositories. Please select a VCS provider:',
+                    [
+                        'github' => 'GitHub',
+                    ]
+                );
+                $question->setErrorMessage('Invalid selection.');
+                $chosen_provider = $helper->ask($input, $output, $question);
+                $input->setOption('vcs-provider', $chosen_provider);
+            }
+        }
+
         $vcs_provider = strtolower($input->getOption('vcs-provider'));
         $org_id = $input->getOption('org');
 
