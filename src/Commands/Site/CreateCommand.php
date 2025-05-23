@@ -36,6 +36,9 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     protected const AUTH_LINK_TIMEOUT = 600;
     protected const ADD_NEW_ORG_TEXT = 'Add to a new org';
 
+    // Default timeout.
+    protected const DEFAULT_TIMEOUT = 600;
+
     // Supported VCS types (can be expanded later)
     protected $vcs_providers = ['pantheon', 'github', 'gitlab', 'bitbucket'];
 
@@ -604,7 +607,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($preferred_platform == "sta") {
             try {
                 $this->log()->notice('Waiting for project to be ready for the next step...');
-                $this->getVcsClient()->processProjectReady($site_uuid, 600);
+                $this->getVcsClient()->processProjectReady($site_uuid, self::DEFAULT_TIMEOUT);
             } catch (TerminusException $e) {
                 $this->log()->warning("Error while waiting for project ready: {error_message}", ['error_message' => $e->getMessage()]);
                 $this->log()->warning("Moving on to the next step, but this may cause issues with platform domain assignment.");
@@ -617,11 +620,21 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('Site resources provisioned successfully.');
         } catch (\Throwable $e) {
             // The site exists, the repo exists, just the CMS deploy failed.
-            $this->cleanupPantheonSite($site_uuid, 'Error occurred while provisioning site resources: {msg}', ['msg' => $e->getMessage()]);
+            $this->cleanupPantheonSite($site_uuid, sprintf('Error occurred while provisioning site resources: %s', $e->getMessage()), true);
             throw new TerminusException('Error deploying product: {msg}', ['msg' => $e->getMessage()]);
         }
 
         // 9. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
+        if ($preferred_platform == "sta") {
+            try {
+                $this->log()->notice('Waiting for project to be ready before pushing code...');
+                $this->getVcsClient()->processHealthcheck($site_uuid, self::DEFAULT_TIMEOUT);
+            } catch (TerminusException $e) {
+                $this->log()->warning("Error while waiting for project healthcheck: {error_message}", ['error_message' => $e->getMessage()]);
+                $this->log()->warning("Moving on to the next step, but you may need to push another commit to the repository to get things started...");
+            }
+        }
+
         $wf_start_time = time();
         $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
         try {
@@ -657,7 +670,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($upstream->get('framework') !== 'nodejs') {
             $this->log()->notice('Waiting for sync code workflow to succeed...');
             try {
-                $this->waitForWorkflow($wf_start_time, $site, 'dev', '', 600, 10);
+                $this->waitForWorkflow($wf_start_time, $site, 'dev', '', self::DEFAULT_TIMEOUT, 10);
             } catch (TerminusException $e) {
                 // If the workflow fails, the site and repo exist, but code isn't there.
                 // Don't delete the site. Log a warning and the repo URL.

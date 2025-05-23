@@ -167,6 +167,39 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Process project ready until we get the expected status or an error.
+     */
+    public function processHealthcheck(string $site_id, $timeout = 0): array
+    {
+        $start = time();
+        do {
+            try {
+                $data = $this->getHealthcheck($site_id);
+            } catch (TerminusException $e) {
+                // If we get an error, just continue and retry.
+                continue;
+            }
+            $data = $this->getHealthcheck($site_id);
+            $data = (array) $data;
+            // Multiply by 1000 to convert milliseconds to microseconds.
+            usleep($this->pollingInterval * 1000);
+            $current = time();
+            $elapsed = $current - $start;
+            if ($timeout > 0 && $elapsed > $timeout) {
+                throw new TerminusException(
+                    'Timeout while waiting for healthcheck. Elapsed: {elapsed}. Timeout: {timeout}.',
+                    [
+                        'elapsed' => $elapsed,
+                        'timeout' => $timeout,
+                    ]
+                );
+            }
+        } while ($data['status'] != "ok");
+
+        return $data;
+    }
+
+    /**
      * Cleanup site details.
      */
     public function cleanupSiteDetails(string $site_details_id): void
@@ -200,6 +233,18 @@ class Client implements ConfigAwareInterface
         ];
 
         return $this->requestApi(sprintf('site-details/%s/project-ready', $site_id), $request_options);
+    }
+
+    /**
+     * Get project healthcheck status.
+     */
+    public function getHealthcheck(string $site_id): array
+    {
+        $request_options = [
+            'method' => 'GET',
+        ];
+
+        return $this->requestApi(sprintf('site-details/%s/tenant-healthcheck', $site_id), $request_options);
     }
 
     /**
