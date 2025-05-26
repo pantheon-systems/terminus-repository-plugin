@@ -293,7 +293,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $env->getDomains()->all(),
             function ($domain) {
                 $domain_type = $domain->get('type');
-                return (!empty($domain_type) && "platform" == $domain_type);
+                return (!empty($domain_type) && $domain_type == "platform");
             }
         );
         if (empty($domains)) {
@@ -305,7 +305,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         do {
             usleep($polling_interval * 1000);
             $current_time = time();
-            if ($current_time - $start_time > self::DEFAULT_TIMEOUT) {
+            if (($current_time - $start_time) > self::DEFAULT_TIMEOUT) {
                 throw new TerminusException('Timeout waiting for dev environment to become available.');
             }
             try {
