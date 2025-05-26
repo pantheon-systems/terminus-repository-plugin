@@ -321,8 +321,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 $logger->debug('Site seems to be up and running.');
                 break;
             }
-
-        } while(true);
+        } while (true);
     }
 
     /**
