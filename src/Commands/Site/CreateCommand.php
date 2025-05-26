@@ -8,6 +8,7 @@ use Pantheon\Terminus\Helpers\Traits\WaitForWakeTrait;
 use Pantheon\Terminus\Models\Upstream;
 use Pantheon\Terminus\Models\User;
 use Pantheon\Terminus\Models\Site;
+use Pantheon\Terminus\Models\Environment;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Helpers\LocalMachineHelper;
@@ -283,15 +284,62 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     }
 
     /**
+     * Wait for wake on the dev environment for a STA site.
+     */
+    protected function waitForWakeSta(Environment $env, $logger)
+    {
+        $this->log()->notice('Waiting for site dev environment to become available...');
+        $domains = array_filter(
+            $env->getDomains()->all(),
+            function ($domain) {
+                $domain_type = $domain->get('type');
+                return (!empty($domain_type) && "platform" == $domain_type);
+            }
+        );
+        if (empty($domains)) {
+            throw new TerminusException('No valid domains found for health check.');
+        }
+        $domain = array_pop($domains);
+        $start_time = time();
+        $polling_interval = $this->getConfig()->get('http_retry_delay_ms', 1000);
+        do {
+            usleep($polling_interval * 1000);
+            $current_time = time();
+            if ($current_time - $start_time > self::DEFAULT_TIMEOUT) {
+                throw new TerminusException('Timeout waiting for dev environment to become available.');
+            }
+            try {
+                $response = $this->request()->request(
+                    "https://{$domain->id}/"
+                );
+            } catch (TerminusException $e) {
+                $logger->debug('Error while checking site status: {message}', ['message' => $e->getMessage()]);
+                continue;
+            }
+            $success = $response->getStatusCode() === 200;
+            if ($success) {
+                $logger->debug('Site seems to be up and running.');
+                break;
+            }
+
+        } while(true);
+    }
+
+    /**
      * Wait for dev environment to be ready to handle traffic.
      */
-    protected function waitForDevEnvironment(Site $site)
+    protected function waitForDevEnvironment(Site $site, string $preferred_platform)
     {
         $this->log()->notice('Waiting for site dev environment to become available...');
         try {
             $env = $site->getEnvironments()->get('dev');
             if ($env) {
-                $this->waitForWake($env, $this->logger);
+                if ($preferred_platform == "cos") {
+                    $this->waitForWake($env, $this->logger);
+                }
+                if ($preferred_platform == "sta") {
+                    $this->waitForWakeSta($env, $this->logger);
+                }
                 $this->log()->notice('Site dev environment is available.');
                 $this->log()->notice('---');
                 $this->log()->notice('Site "{site}" created successfully!', ['site' => $site->getName()]);
@@ -680,21 +728,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 );
                 $this->log()->warning('The site and repository have been created, but the sync_code workflow was not found; check for its completion in the Pantheon Dashboard.');
             }
-            // Wait for the dev environment to be ready.
-            try {
-                $this->waitForDevEnvironment($site);
-            } catch (TerminusException $e) {
-                // If the dev environment fails to wake, log a warning.
-                $this->log()->warning(
-                    'Error waiting for dev environment to wake: {error_message}',
-                    ['error_message' => $e->getMessage()]
-                );
-                $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
-            }
         }
-
-        // TODO: Implement proper wait for nodejs workflow to succeed.
-
+        // Wait for the dev environment to be ready.
+        try {
+            $this->waitForDevEnvironment($site, $preferred_platform);
+        } catch (TerminusException $e) {
+            // If the dev environment fails to wake, log a warning.
+            $this->log()->warning(
+                'Error waiting for dev environment to wake: {error_message}',
+                ['error_message' => $e->getMessage()]
+            );
+            $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
+        }
 
         // 11. Final Success Message & Wait for Wake
         $this->log()->notice('---');

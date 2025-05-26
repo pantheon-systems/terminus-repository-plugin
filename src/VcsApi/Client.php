@@ -173,6 +173,8 @@ class Client implements ConfigAwareInterface
     {
         $start = time();
         do {
+            // Multiply by 1000 to convert milliseconds to microseconds.
+            usleep($this->pollingInterval * 1000);
             try {
                 $data = $this->getHealthcheck($site_id);
             } catch (TerminusException $e) {
@@ -181,8 +183,7 @@ class Client implements ConfigAwareInterface
             }
             $data = $this->getHealthcheck($site_id);
             $data = (array) $data;
-            // Multiply by 1000 to convert milliseconds to microseconds.
-            usleep($this->pollingInterval * 1000);
+
             $current = time();
             $elapsed = $current - $start;
             if ($timeout > 0 && $elapsed > $timeout) {
