@@ -286,9 +286,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     /**
      * Wait for wake on the dev environment for a STA site.
      */
-    protected function waitForWakeSta(Environment $env, $logger)
+    protected function waitForWakeSta(Environment $env)
     {
-        $this->log()->notice('Waiting for site dev environment to become available...');
         $domains = array_filter(
             $env->getDomains()->all(),
             function ($domain) {
@@ -310,7 +309,12 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             }
             try {
                 $response = $this->request()->request(
-                    "https://{$domain->id}/"
+                    "https://{$domain->id}/",
+                    [
+                        'headers' => [
+                            'Deterrence-Bypass' => 1,
+                        ],
+                    ],
                 );
             } catch (TerminusException $e) {
                 $logger->debug('Error while checking site status: {message}', ['message' => $e->getMessage()]);
@@ -318,7 +322,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             }
             $success = $response->getStatusCode() === 200;
             if ($success) {
-                $logger->debug('Site seems to be up and running.');
+                $this->log()->notice('Site seems to be up and running.');
                 break;
             }
         } while (true);
@@ -337,7 +341,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     $this->waitForWake($env, $this->logger);
                 }
                 if ($preferred_platform == "sta") {
-                    $this->waitForWakeSta($env, $this->logger);
+                    $this->waitForWakeSta($env);
                 }
                 $this->log()->notice('Site dev environment is available.');
                 $this->log()->notice('---');
