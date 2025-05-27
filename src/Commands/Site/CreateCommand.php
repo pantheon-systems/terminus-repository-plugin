@@ -377,7 +377,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'site_uuid' => $site_uuid,
             'site_name' => $site_name,
             'site_type' => $site_type,
-            'platform_type' => $preferred_platform,
         ];
 
         $vcs_client = $this->getVcsClient();
