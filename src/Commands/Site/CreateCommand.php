@@ -317,7 +317,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     ],
                 );
             } catch (TerminusException $e) {
-                $logger->debug('Error while checking site status: {message}', ['message' => $e->getMessage()]);
+                $this->log()->debug('Error while checking site status: {message}', ['message' => $e->getMessage()]);
                 continue;
             }
             $success = $response->getStatusCode() === 200;
