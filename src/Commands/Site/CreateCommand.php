@@ -8,6 +8,7 @@ use Pantheon\Terminus\Helpers\Traits\WaitForWakeTrait;
 use Pantheon\Terminus\Models\Upstream;
 use Pantheon\Terminus\Models\User;
 use Pantheon\Terminus\Models\Site;
+use Pantheon\Terminus\Models\Environment;
 use Pantheon\Terminus\Request\RequestAwareInterface;
 use Pantheon\Terminus\Site\SiteAwareInterface;
 use Pantheon\Terminus\Helpers\LocalMachineHelper;
@@ -35,6 +36,9 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     // Wait time for GitHub app installation to succeed.
     protected const AUTH_LINK_TIMEOUT = 600;
     protected const ADD_NEW_ORG_TEXT = 'Add to a new org';
+
+    // Default timeout.
+    protected const DEFAULT_TIMEOUT = 600;
 
     // Supported VCS types (can be expanded later)
     protected $vcs_providers = ['pantheon', 'github', 'gitlab', 'bitbucket'];
@@ -280,15 +284,65 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     }
 
     /**
+     * Wait for wake on the dev environment for a STA site.
+     */
+    protected function waitForWakeSta(Environment $env)
+    {
+        $domains = array_filter(
+            $env->getDomains()->all(),
+            function ($domain) {
+                $domain_type = $domain->get('type');
+                return (!empty($domain_type) && $domain_type == "platform");
+            }
+        );
+        if (empty($domains)) {
+            throw new TerminusException('No valid domains found for health check.');
+        }
+        $domain = array_pop($domains);
+        $start_time = time();
+        $polling_interval = $this->getConfig()->get('http_retry_delay_ms', 1000);
+        do {
+            usleep($polling_interval * 1000);
+            $current_time = time();
+            if (($current_time - $start_time) > self::DEFAULT_TIMEOUT) {
+                throw new TerminusException('Timeout waiting for dev environment to become available.');
+            }
+            try {
+                $response = $this->request()->request(
+                    "https://{$domain->id}/",
+                    [
+                        'headers' => [
+                            'Deterrence-Bypass' => 1,
+                        ],
+                    ],
+                );
+            } catch (TerminusException $e) {
+                $this->log()->debug('Error while checking site status: {message}', ['message' => $e->getMessage()]);
+                continue;
+            }
+            $success = $response->getStatusCode() === 200;
+            if ($success) {
+                $this->log()->notice('Site seems to be up and running.');
+                break;
+            }
+        } while (true);
+    }
+
+    /**
      * Wait for dev environment to be ready to handle traffic.
      */
-    protected function waitForDevEnvironment(Site $site)
+    protected function waitForDevEnvironment(Site $site, string $preferred_platform)
     {
         $this->log()->notice('Waiting for site dev environment to become available...');
         try {
             $env = $site->getEnvironments()->get('dev');
             if ($env) {
-                $this->waitForWake($env, $this->logger);
+                if ($preferred_platform == "cos") {
+                    $this->waitForWake($env, $this->logger);
+                }
+                if ($preferred_platform == "sta") {
+                    $this->waitForWakeSta($env);
+                }
                 $this->log()->notice('Site dev environment is available.');
                 $this->log()->notice('---');
                 $this->log()->notice('Site "{site}" created successfully!', ['site' => $site->getName()]);
@@ -604,7 +658,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($preferred_platform == "sta") {
             try {
                 $this->log()->notice('Waiting for project to be ready for the next step...');
-                $this->getVcsClient()->processProjectReady($site_uuid, 600);
+                $this->getVcsClient()->processProjectReady($site_uuid, self::DEFAULT_TIMEOUT);
             } catch (TerminusException $e) {
                 $this->log()->warning("Error while waiting for project ready: {error_message}", ['error_message' => $e->getMessage()]);
                 $this->log()->warning("Moving on to the next step, but this may cause issues with platform domain assignment.");
@@ -617,11 +671,21 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('Site resources provisioned successfully.');
         } catch (\Throwable $e) {
             // The site exists, the repo exists, just the CMS deploy failed.
-            $this->cleanupPantheonSite($site_uuid, 'Error occurred while provisioning site resources: {msg}', ['msg' => $e->getMessage()]);
+            $this->cleanupPantheonSite($site_uuid, sprintf('Error occurred while provisioning site resources: %s', $e->getMessage()), true);
             throw new TerminusException('Error deploying product: {msg}', ['msg' => $e->getMessage()]);
         }
 
         // 9. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
+        if ($preferred_platform == "sta") {
+            try {
+                $this->log()->notice('Waiting for project to be ready before pushing code...');
+                $this->getVcsClient()->processHealthcheck($site_uuid, self::DEFAULT_TIMEOUT);
+            } catch (TerminusException $e) {
+                $this->log()->warning("Error while waiting for project healthcheck: {error_message}", ['error_message' => $e->getMessage()]);
+                $this->log()->warning("Moving on to the next step, but you may need to push another commit to the repository to get things started...");
+            }
+        }
+
         $wf_start_time = time();
         $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
         try {
@@ -657,7 +721,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($upstream->get('framework') !== 'nodejs') {
             $this->log()->notice('Waiting for sync code workflow to succeed...');
             try {
-                $this->waitForWorkflow($wf_start_time, $site, 'dev', '', 600, 10);
+                $this->waitForWorkflow($wf_start_time, $site, 'dev', '', self::DEFAULT_TIMEOUT, 10);
             } catch (TerminusException $e) {
                 // If the workflow fails, the site and repo exist, but code isn't there.
                 // Don't delete the site. Log a warning and the repo URL.
@@ -667,21 +731,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 );
                 $this->log()->warning('The site and repository have been created, but the sync_code workflow was not found; check for its completion in the Pantheon Dashboard.');
             }
-            // Wait for the dev environment to be ready.
-            try {
-                $this->waitForDevEnvironment($site);
-            } catch (TerminusException $e) {
-                // If the dev environment fails to wake, log a warning.
-                $this->log()->warning(
-                    'Error waiting for dev environment to wake: {error_message}',
-                    ['error_message' => $e->getMessage()]
-                );
-                $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
-            }
         }
-
-        // TODO: Implement proper wait for nodejs workflow to succeed.
-
+        // Wait for the dev environment to be ready.
+        try {
+            $this->waitForDevEnvironment($site, $preferred_platform);
+        } catch (TerminusException $e) {
+            // If the dev environment fails to wake, log a warning.
+            $this->log()->warning(
+                'Error waiting for dev environment to wake: {error_message}',
+                ['error_message' => $e->getMessage()]
+            );
+            $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
+        }
 
         // 11. Final Success Message & Wait for Wake
         $this->log()->notice('---');
