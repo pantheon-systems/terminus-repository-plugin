@@ -125,7 +125,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     /**
      * Prompts for required options depending on the ones that were passed.
      *
-     * @hook interact site:create
+     * @hook post-interact site:create
      */
     public function promptForRequired(InputInterface $input, OutputInterface $output, AnnotationData $annotation_data)
     {
