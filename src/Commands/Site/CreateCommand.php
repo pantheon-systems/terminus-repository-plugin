@@ -768,7 +768,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             case 'wordpress_network':
                 return 'cms-wordpress';
             case 'nodejs':
-            case 'nextjs15':
                 return 'nodejs';
             default:
                 throw new TerminusException('Framework {framework} not currently supported for external VCS site creation.', compact('framework'));
@@ -780,7 +779,11 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      */
     protected function getIcrUpstream(string $original_upstream_id, User $user): Upstream
     {
-        $original_upstream = $user->getUpstreams()->get($original_upstream_id); // Already validated upstream exists
+        $original_upstream = $user->getUpstreams()->get($original_upstream_id);
+        if ($original_upstream->get('type') === 'icr') {
+            // If the original upstream is already an ICR upstream, return it directly.
+            return $original_upstream;
+        }
         $framework = $original_upstream->get('framework');
         return $this->getIcrUpstreamFromFramework($framework, $user);
     }
@@ -797,10 +800,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 return $user->getUpstreams()->get('wordpress-icr');
             case 'wordpress_network':
                 return $user->getUpstreams()->get('wordpress-multisite-icr');
-            case 'nodejs':
-                return $user->getUpstreams()->get('nodejs');
-            case 'nextjs15':
-                return $user->getUpstreams()->get('nextjs15');
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
