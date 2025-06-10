@@ -7,6 +7,21 @@ This plugin will eventually handle direct integration with other Git providers, 
 
 To set up the GitHub Application this plugin enhance the commands `site:create` and `env:deploy` with additional functionality.
 
+## Example Usage
+
+To create a WordPress site that uses the GitHub Application, you can run the following command:
+
+```
+terminus site:create my-wordpress-site "My WordPress Site" wordpress --vcs-provider=github --org="My Pantheon Org name or UUID"
+```
+
+To create a Drupal 11 site that uses the GitHub Application, you can run the following command:
+
+```
+terminus site:create my-drupal-site "My Drupal Site" drupal-11-composer-managed --vcs-provider=github --org="My Pantheon Org name or UUID"
+```
+
+
 ## Installation
 
 To install this plugin using Terminus 3 or later, run the following command:
