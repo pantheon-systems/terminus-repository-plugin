@@ -61,6 +61,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * @option vcs-org Name of the Github organization containing the repository. Required if --vcs-provider=github is used.
      * @option visibility Visibility of the external repository (private or public). Only applies if --vcs-provider=github. Default is private.
      * @option vcs-token Personal access token for the VCS provider. Only applies if --vcs-provider=gitlab.
+     * @option create-repo Whether to create a repository in the VCS provider. Default is true.
      *
      * @usage <site> <label> <upstream> Creates a new Pantheon-hosted site named <site>, labeled <label>, using code from <upstream>.
      * @usage <site> <label> <upstream> --org=<org> Creates site associated with <organization>, with a Pantheon-hosted git repository.
@@ -80,7 +81,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'vcs-provider' => 'pantheon',
             'vcs-org' => null,
             'visibility' => 'private',
-            // Note: no-interaction is a global option, accessed via $this->input
+            'create-repo' => true,
         ]
     ) {
         $vcs_provider = strtolower($options['vcs-provider']);
@@ -105,6 +106,13 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 throw new TerminusException(
                     'The --org option is required when using an external VCS provider (--vcs-provider={vcs}).',
                     ['vcs-provider' => $vcs_provider]
+                );
+            }
+        } else {
+            // If using Pantheon, no create-repo is not supported.
+            if (!$options['create-repo']) {
+                throw new TerminusException(
+                    'The --no-create-repo option is not supported when using Pantheon as the VCS provider.'
                 );
             }
         }
@@ -600,7 +608,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $repo_create_data = [
             'site_uuid' => $site_uuid,
             'label' => $site_name,
-            'skip_create' => false,
+            'skip_create' => !$options['create-repo'],
             'is_private' => strtolower($options['visibility']) === 'private',
             'vendor_id' => $vcs_id,
         ];
