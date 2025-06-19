@@ -686,12 +686,21 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         // 9. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
         if ($preferred_platform == "sta") {
             try {
-                $this->log()->notice('Waiting for project to be ready before pushing code...');
+                $this->log()->notice('Waiting for project to be ready...');
                 $this->getVcsClient()->processHealthcheck($site_uuid, self::DEFAULT_TIMEOUT);
             } catch (TerminusException $e) {
                 $this->log()->warning("Error while waiting for project healthcheck: {error_message}", ['error_message' => $e->getMessage()]);
                 $this->log()->warning("Moving on to the next step, but you may need to push another commit to the repository to get things started...");
             }
+        }
+
+        if (!$options['create-repo']) {
+            $this->log()->notice('Skipping initial code push to repository as requested. Please make a commit to the repository to start using it.');
+            $this->log()->notice('---');
+            $this->log()->notice('Site "{site}" created successfully with external repository!', ['site' => $site->getName()]);
+            $this->log()->notice('GitHub Repository: {url}', ['url' => $target_repo_url]);
+            $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
+            return;
         }
 
         $wf_start_time = time();
