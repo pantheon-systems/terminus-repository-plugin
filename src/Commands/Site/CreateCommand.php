@@ -291,7 +291,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('CMS deployed successfully.');
 
             // Finally, wait for the dev environment to be ready.
-            $this->waitForDevEnvironment($site);
+            $this->waitForDevEnvironment($site, "cos");
         } else {
             // This shouldn't happen if the create workflow succeeded and returned an ID, but good to handle.
             throw new TerminusException('Failed to retrieve site object (ID: {id}) after creation workflow succeeded.', ['id' => $site_id]);
