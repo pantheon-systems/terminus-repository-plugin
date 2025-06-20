@@ -291,7 +291,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('CMS deployed successfully.');
 
             // Finally, wait for the dev environment to be ready.
-            $this->waitForDevEnvironment($site);
+            $this->waitForDevEnvironment($site, "cos");
         } else {
             // This shouldn't happen if the create workflow succeeded and returned an ID, but good to handle.
             throw new TerminusException('Failed to retrieve site object (ID: {id}) after creation workflow succeeded.', ['id' => $site_id]);
@@ -400,6 +400,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         // Pantheon Org ID/Name/Label
         $org_id = $options['org'];
         $this->log()->debug('Pantheon organization ID: {org_id}', ['org_id' => $org_id]);
+
+        $repo_name = $options['repository-name'] ?? $site_name;
 
         // 1. Get Pantheon Organization.
         try {
@@ -610,11 +612,11 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 6. Create Repository via go-vcs-service (repoCreate)
-        $this->log()->notice("Creating repository '{repo}'...", ['repo' => $site_name]);
+        $this->log()->notice("Creating repository '{repo}'...", ['repo' => $repo_name]);
         $vcs_id = array_search($vcs_provider, $this->vcs_providers);
         $repo_create_data = [
             'site_uuid' => $site_uuid,
-            'label' => $options['repository-name'] ?? $site_name,
+            'label' => $repo_name,
             'skip_create' => !$options['create-repo'],
             'is_private' => strtolower($options['visibility']) === 'private',
             'vendor_id' => $vcs_id,
@@ -643,7 +645,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('Next: Installing webhook...');
             try {
                 $webhook_data = [
-                    'repository' => $site_name,
+                    'repository' => $repo_name,
                     'vendor' => $vcs_provider,
                     'workflow_uuid' => $vcs_workflow_uuid,
                     'site_uuid' => $site_uuid,
