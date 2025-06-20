@@ -22,6 +22,8 @@ use Symfony\Component\Console\Question\Question;
 use Consolidation\AnnotatedCommand\AnnotationData;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Process;
 
 /**
  * Creates a new site, potentially with an external Git repository.
@@ -714,6 +716,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         $wf_start_time = time();
         $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
+        $repo_cloned = false;
         try {
             [$upstream_repo_url, $upstream_repo_branch] = $this->getUpstreamInformation($upstream->id, $user);
 
@@ -730,6 +733,16 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
             $vcs_client->repoInitialize($repo_initialize_data);
             $this->log()->notice('Initial code pushed successfully.');
+
+            try {
+                $this->cloneRepo($repo_initialize_data['target_repo_url']);
+                $repo_cloned = true;
+            } catch (ProcessFailedException $t) {
+                $this->log()->warning(
+                    'Error cloning repository after initialization: {error_message}',
+                    ['error_message' => $t->getMessage()]
+                );
+            }
         } catch (\Throwable $t) {
             // If repoInitialize fails, the site and repo exist, but code isn't there.
             // Don't delete the site. Log a warning and the repo URL.
@@ -775,6 +788,37 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Site "{site}" created successfully with GitHub repository!', ['site' => $site->getName()]);
         $this->log()->notice('GitHub Repository: {url}', ['url' => $target_repo_url]);
         $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
+        if ($repo_cloned) {
+            $this->log()->notice('Code repository cloned successfully to the current directory.');
+        }
+    }
+
+    // Clone the repository using the converted SSH URL.
+    private function cloneRepo($repo_url)
+    {
+        $repo_url = $this->convertToSsh($repo_url);
+
+        // Run git clone command
+        $process = new Process(['git', 'clone', $repo_url]);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            throw new ProcessFailedException($process);
+        }
+
+        echo "Repo cloned to current directory.\n";
+        echo $process->getOutput();
+    }
+
+    // Convert the repository URL to SSH format.
+    private function convertToSsh($repo_url)
+    {
+        $this->log()->notice('Converting repository URL to SSH format...');
+        $repo_url = str_replace('https://', 'git@', $repo_url);
+        $repo_url = str_replace('github.com/', 'github.com:', $repo_url);
+        $repo_url .= '.git';
+        $this->log()->notice('Converted repository URL: {repo_name}', ['repo_name' => $repo_url]);
+        return $repo_url;
     }
 
     /**
