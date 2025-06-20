@@ -737,10 +737,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             try {
                 $this->cloneRepo($repo_initialize_data['target_repo_url']);
                 $repo_cloned = true;
-            } catch (ProcessFailedException $t) {
+            } catch (\Throwable $e) {
                 $this->log()->warning(
                     'Error cloning repository after initialization: {error_message}',
-                    ['error_message' => $t->getMessage()]
+                    ['error_message' => $e->getMessage()]
                 );
             }
         } catch (\Throwable $t) {
@@ -806,19 +806,26 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             throw new ProcessFailedException($process);
         }
 
-        echo "Repo cloned to current directory.\n";
-        echo $process->getOutput();
+        $this->log()->notice($process->getOutput());
     }
 
     // Convert the repository URL to SSH format.
     private function convertToSsh($repo_url)
     {
-        $this->log()->notice('Converting repository URL to SSH format...');
-        $repo_url = str_replace('https://', 'git@', $repo_url);
-        $repo_url = str_replace('github.com/', 'github.com:', $repo_url);
-        $repo_url .= '.git';
-        $this->log()->notice('Converted repository URL: {repo_name}', ['repo_name' => $repo_url]);
-        return $repo_url;
+        $parsedUrl = parse_url($repo_url);
+        if (!isset($parsedUrl['host'], $parsedUrl['path'])) {
+            throw new \InvalidArgumentException("Invalid repository URL: $repo_url");
+        }
+
+        $host = $parsedUrl['host'];
+        $path = ltrim($parsedUrl['path'], '/');
+
+        // Remove .git if present to avoid duplication
+        $path = preg_replace('/\.git$/', '', $path);
+        $sshUrl = "git@$host:$path.git";
+
+        $this->log()->notice('Converted repository URL: {repo_url}', ['repo_url' => $sshUrl]);
+        return $sshUrl;
     }
 
     /**
