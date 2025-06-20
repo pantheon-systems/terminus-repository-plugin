@@ -62,6 +62,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * @option visibility Visibility of the external repository (private or public). Only applies if --vcs-provider=github. Default is private.
      * @option vcs-token Personal access token for the VCS provider. Only applies if --vcs-provider=gitlab.
      * @option create-repo Whether to create a repository in the VCS provider. Default is true.
+     * @option repository-name Name of the repository to create in the VCS provider. Only applies if --vcs-provider is not Pantheon.
      *
      * @usage <site> <label> <upstream> Creates a new Pantheon-hosted site named <site>, labeled <label>, using code from <upstream>.
      * @usage <site> <label> <upstream> --org=<org> Creates site associated with <organization>, with a Pantheon-hosted git repository.
@@ -82,6 +83,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'vcs-org' => null,
             'visibility' => 'private',
             'create-repo' => true,
+            'repository-name' => null,
         ]
     ) {
         $vcs_provider = strtolower($options['vcs-provider']);
@@ -113,6 +115,11 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             if (!$options['create-repo']) {
                 throw new TerminusException(
                     'The --no-create-repo option is not supported when using Pantheon as the VCS provider.'
+                );
+            }
+            if ($options['repository-name']) {
+                throw new TerminusException(
+                    'The --repository-name option is not supported when using Pantheon as the VCS provider.'
                 );
             }
         }
@@ -607,7 +614,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $vcs_id = array_search($vcs_provider, $this->vcs_providers);
         $repo_create_data = [
             'site_uuid' => $site_uuid,
-            'label' => $site_name,
+            'label' => $options['repository-name'] ?? $site_name,
             'skip_create' => !$options['create-repo'],
             'is_private' => strtolower($options['visibility']) === 'private',
             'vendor_id' => $vcs_id,
