@@ -22,6 +22,8 @@ use Symfony\Component\Console\Question\Question;
 use Consolidation\AnnotatedCommand\AnnotationData;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Process;
 
 /**
  * Creates a new site, potentially with an external Git repository.
@@ -63,6 +65,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * @option vcs-token Personal access token for the VCS provider. Only applies if --vcs-provider=gitlab.
      * @option create-repo Whether to create a repository in the VCS provider. Default is true.
      * @option repository-name Name of the repository to create in the VCS provider. Only applies if --vcs-provider is not Pantheon.
+     * @option skip-clone-repo Do not clone the repository after creation. Default is false.
      *
      * @usage <site> <label> <upstream> Creates a new Pantheon-hosted site named <site>, labeled <label>, using code from <upstream>.
      * @usage <site> <label> <upstream> --org=<org> Creates site associated with <organization>, with a Pantheon-hosted git repository.
@@ -84,6 +87,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'visibility' => 'private',
             'create-repo' => true,
             'repository-name' => null,
+            'skip-clone-repo' => false,
         ]
     ) {
         $vcs_provider = strtolower($options['vcs-provider']);
@@ -714,6 +718,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         $wf_start_time = time();
         $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
+        $clone_repo = ($options['skip-clone-repo'] == false);
         try {
             [$upstream_repo_url, $upstream_repo_branch] = $this->getUpstreamInformation($upstream->id, $user);
 
@@ -730,7 +735,13 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
             $vcs_client->repoInitialize($repo_initialize_data);
             $this->log()->notice('Initial code pushed successfully.');
+
+            if ($clone_repo) {
+                $this->cloneRepo($repo_initialize_data['target_repo_url']);
+            }
         } catch (\Throwable $t) {
+            $clone_repo = false;
+
             // If repoInitialize fails, the site and repo exist, but code isn't there.
             // Don't delete the site. Log a warning and the repo URL.
             $this->log()->warning(
@@ -775,6 +786,50 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Site "{site}" created successfully with GitHub repository!', ['site' => $site->getName()]);
         $this->log()->notice('GitHub Repository: {url}', ['url' => $target_repo_url]);
         $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
+        if ($clone_repo) {
+            $this->log()->notice('Code repository cloned successfully to the current directory.');
+        }
+    }
+
+    /**
+     * Clone the repository using the converted SSH URL.
+     */
+    private function cloneRepo($repo_url)
+    {
+        $repo_url = $this->convertToSsh($repo_url);
+
+        // Run git clone command
+        $process = new Process(['git', 'clone', $repo_url]);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            // @codingStandardsIgnoreLine
+            throw new ProcessFailedException($process);
+        }
+
+        $this->log()->notice($process->getOutput());
+    }
+
+    /**
+     * Convert the repository URL to SSH format.
+     */
+    private function convertToSsh($repo_url)
+    {
+        $parsedUrl = parse_url($repo_url);
+        if (!isset($parsedUrl['host'], $parsedUrl['path'])) {
+            // @codingStandardsIgnoreLine
+            throw new TerminusException('Invalid repository URL: {repo_url}', ['repo_url' => $repo_url]);
+        }
+
+        $host = $parsedUrl['host'];
+        $path = ltrim($parsedUrl['path'], '/');
+
+        // Remove .git if present to avoid duplication
+        $path = preg_replace('/\.git$/', '', $path);
+        $sshUrl = "git@$host:$path.git";
+
+        $this->log()->notice('Converted repository URL: {repo_url}', ['repo_url' => $sshUrl]);
+        return $sshUrl;
     }
 
     /**
