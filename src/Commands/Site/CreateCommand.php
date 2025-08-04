@@ -652,6 +652,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             }
             $this->log()->notice('VCS repository created successfully: {url}', ['url' => $target_repo_url]);
         } catch (\Throwable $t) {
+            $this->log()->error('Error creating repository via VCS service: {error_message}', ['error_message' => $t->getMessage()]);
             $this->cleanupPantheonSite($site_uuid, 'Failed to create repository via VCS service.');
             throw new TerminusException(
                 'Error creating repository via VCS service: {error_message}',
