@@ -407,6 +407,16 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         $repo_name = $options['repository-name'] ?? $site_name;
 
+        // 0. Validate repo name.
+        if (empty($repo_name)) {
+            throw new TerminusException('Repository name cannot be empty.');
+        }
+        if (preg_match('/[^a-zA-Z0-9\-_]/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" contains invalid characters. Only alphanumeric, hyphen, and underscore are allowed.', ['name' => $repo_name]);
+        }
+        $this->log()->debug('Repository name: {repo_name}', ['repo_name' => $repo_name]);
+
+
         // 1. Get Pantheon Organization.
         try {
             $membership = $user->getOrganizationMemberships()->get($org_id);
@@ -616,12 +626,17 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 6. Create Repository via go-vcs-service (repoCreate)
-        $this->log()->notice("Creating repository '{repo}'...", ['repo' => $repo_name]);
+        $create_repo = $options['create-repo'];
+        if ($create_repo) {
+            $this->log()->notice("Creating repository '{repo}'...", ['repo' => $repo_name]);
+        } else {
+            $this->log()->notice("Linking existing repository '{repo}' as requested. Repository should exist at this point, otherwise this will fail.", ['repo' => $repo_name]);
+        }
         $vcs_id = array_search($vcs_provider, $this->vcs_providers);
         $repo_create_data = [
             'site_uuid' => $site_uuid,
             'label' => $repo_name,
-            'skip_create' => !$options['create-repo'],
+            'skip_create' => !$create_repo,
             'is_private' => strtolower($options['visibility']) === 'private',
             'vendor_id' => $vcs_id,
         ];
@@ -637,6 +652,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             }
             $this->log()->notice('VCS repository created successfully: {url}', ['url' => $target_repo_url]);
         } catch (\Throwable $t) {
+            $this->log()->error('Error creating repository via VCS service: {error_message}', ['error_message' => $t->getMessage()]);
             $this->cleanupPantheonSite($site_uuid, 'Failed to create repository via VCS service.');
             throw new TerminusException(
                 'Error creating repository via VCS service: {error_message}',
