@@ -12,8 +12,8 @@ use Psr\Log\LoggerAwareTrait;
 use League\Container\ContainerAwareInterface;
 use League\Container\ContainerAwareTrait;
 
-class SecretsHandlingCommand implements SiteAwareInterface, LoggerAwareInterface, ContainerAwareInterface {
-
+class SecretsHandlingCommand implements SiteAwareInterface, LoggerAwareInterface, ContainerAwareInterface
+{
     use SiteAwareTrait;
     use LoggerAwareTrait;
     use ContainerAwareTrait;
@@ -74,6 +74,5 @@ class SecretsHandlingCommand implements SiteAwareInterface, LoggerAwareInterface
         if (!$env_name) {
             $this->logger->notice('You may want to rebuild a different environment using "{command}"', ['command' => 'terminus env:code-rebuild <site>.<env>.']);
         }
-
     }
 }
