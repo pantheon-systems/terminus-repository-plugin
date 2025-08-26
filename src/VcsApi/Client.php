@@ -172,6 +172,7 @@ class Client implements ConfigAwareInterface
     public function processHealthcheck(string $site_id, $timeout = 0): array
     {
         $start = time();
+        $success = false;
         do {
             // Multiply by 1000 to convert milliseconds to microseconds.
             usleep($this->pollingInterval * 1000);
@@ -181,7 +182,6 @@ class Client implements ConfigAwareInterface
                 // If we get an error, just continue and retry.
                 continue;
             }
-            $data = $this->getHealthcheck($site_id);
             $data = (array) $data;
 
             $current = time();
@@ -195,7 +195,25 @@ class Client implements ConfigAwareInterface
                     ]
                 );
             }
-        } while ($data['status'] != "ok");
+
+            if ($data['status'] != "SUCCESS") {
+                continue;
+            }
+
+            foreach ($data['detail'] as $detail) {
+                if ($detail->name !== "internal-provisioner") {
+                    continue;
+                }
+                if ($detail->status !== "SUCCESS") {
+                    continue;
+                }
+                $recorded_at = $detail->recorded_at;
+                // If recorded_at is later than start, then we're ready to move on. Recorded at is a datetime string.
+                if (strtotime($recorded_at) >= $start) {
+                    $success = true;
+                }
+            }
+        } while (!$success);
 
         return $data;
     }
