@@ -723,7 +723,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             }
         }
 
-        if ($options['create-repo']) {            
+        if ($options['create-repo']) {
             $wf_start_time = time();
             $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
             $clone_repo = ($options['skip-clone-repo'] == false);
