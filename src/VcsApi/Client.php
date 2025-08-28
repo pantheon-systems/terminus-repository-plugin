@@ -307,6 +307,24 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Build repo for a given site.
+     *
+     * @param string $site_id
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function buildRepo(string $site_id): array
+    {
+        $request_options = [
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('repository/' . $site_id . '/build', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Pause build for a given site.
      *
      * @param string $site_id

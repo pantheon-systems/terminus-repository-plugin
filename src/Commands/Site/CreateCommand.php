@@ -723,67 +723,63 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             }
         }
 
-        if (!$options['create-repo']) {
-            $this->log()->notice('Skipping initial code push to repository as requested. Please make a commit to the repository to start using it.');
-            $this->log()->notice('---');
-            $this->log()->notice('Site "{site}" created successfully with external repository!', ['site' => $site->getName()]);
-            $this->log()->notice('GitHub Repository: {url}', ['url' => $target_repo_url]);
-            $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
-            return;
-        }
-
-        $wf_start_time = time();
-        $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
-        $clone_repo = ($options['skip-clone-repo'] == false);
-        try {
-            [$upstream_repo_url, $upstream_repo_branch] = $this->getUpstreamInformation($upstream->id, $user);
-
-            $repo_initialize_data = [
-                'site_id' => $site_uuid,
-                'target_repo_url' => $target_repo_url,
-                'upstream_id' => $upstream->id,
-                'upstream_repo_url' => $upstream_repo_url,
-                'upstream_repo_branch' => $upstream_repo_branch,
-                'installation_id' => (string) $installation_id,
-                'organization_id' => $pantheon_org->id,
-                'vendor_id' => $vcs_id,
-            ];
-
-            $vcs_client->repoInitialize($repo_initialize_data);
-            $this->log()->notice('Initial code pushed successfully.');
-
-            if ($clone_repo) {
-                $this->cloneRepo($repo_initialize_data['target_repo_url']);
-            }
-        } catch (\Throwable $t) {
-            $clone_repo = false;
-
-            // If repoInitialize fails, the site and repo exist, but code isn't there.
-            // Don't delete the site. Log a warning and the repo URL.
-            $this->log()->warning(
-                'Error initializing repository with upstream contents: {error_message}',
-                ['error_message' => $t->getMessage()]
-            );
-            $this->log()->warning('The site and repository have been created, but the initial code push failed.');
-            $this->log()->warning('You may need to manually push the code to {repo_url}', [
-                'repo_url' => $target_repo_url
-            ]);
-        }
-
-        // 10. Wait for workflow and site to wake.
-        if ($upstream->get('framework') !== 'nodejs') {
-            $this->log()->notice('Waiting for sync code workflow to succeed...');
+        if ($options['create-repo']) {
+            $wf_start_time = time();
+            $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
+            $clone_repo = ($options['skip-clone-repo'] == false);
             try {
-                $this->waitForWorkflow($wf_start_time, $site, 'dev', '', self::DEFAULT_TIMEOUT, 10);
-            } catch (TerminusException $e) {
-                // If the workflow fails, the site and repo exist, but code isn't there.
+                [$upstream_repo_url, $upstream_repo_branch] = $this->getUpstreamInformation($upstream->id, $user);
+
+                $repo_initialize_data = [
+                    'site_id' => $site_uuid,
+                    'target_repo_url' => $target_repo_url,
+                    'upstream_id' => $upstream->id,
+                    'upstream_repo_url' => $upstream_repo_url,
+                    'upstream_repo_branch' => $upstream_repo_branch,
+                    'installation_id' => (string) $installation_id,
+                    'organization_id' => $pantheon_org->id,
+                    'vendor_id' => $vcs_id,
+                ];
+
+                $vcs_client->repoInitialize($repo_initialize_data);
+                $this->log()->notice('Initial code pushed successfully.');
+
+                if ($clone_repo) {
+                    $this->cloneRepo($repo_initialize_data['target_repo_url']);
+                }
+            } catch (\Throwable $t) {
+                $clone_repo = false;
+
+                // If repoInitialize fails, the site and repo exist, but code isn't there.
                 // Don't delete the site. Log a warning and the repo URL.
                 $this->log()->warning(
-                    'Error waiting for sync code workflow to succeed: {error_message}',
-                    ['error_message' => $e->getMessage()]
+                    'Error initializing repository with upstream contents: {error_message}',
+                    ['error_message' => $t->getMessage()]
                 );
-                $this->log()->warning('The site and repository have been created, but the sync_code workflow was not found; check for its completion in the Pantheon Dashboard.');
+                $this->log()->warning('The site and repository have been created, but the initial code push failed.');
+                $this->log()->warning('You may need to manually push the code to {repo_url}', [
+                    'repo_url' => $target_repo_url
+                ]);
             }
+
+            // 10. Wait for workflow and site to wake.
+            if ($upstream->get('framework') !== 'nodejs') {
+                $this->log()->notice('Waiting for sync code workflow to succeed...');
+                try {
+                    $this->waitForWorkflow($wf_start_time, $site, 'dev', '', self::DEFAULT_TIMEOUT, 10);
+                } catch (TerminusException $e) {
+                    // If the workflow fails, the site and repo exist, but code isn't there.
+                    // Don't delete the site. Log a warning and the repo URL.
+                    $this->log()->warning(
+                        'Error waiting for sync code workflow to succeed: {error_message}',
+                        ['error_message' => $e->getMessage()]
+                    );
+                    $this->log()->warning('The site and repository have been created, but the sync_code workflow was not found; check for its completion in the Pantheon Dashboard.');
+                }
+            }
+        } else {
+            $this->log()->notice('Requesting initial code delivery...');
+            $this->getVcsClient()->buildRepo($site_uuid);
         }
         // Wait for the dev environment to be ready.
         try {
