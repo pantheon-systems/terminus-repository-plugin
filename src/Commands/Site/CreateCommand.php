@@ -454,6 +454,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
         $this->log()->notice('Pantheon site record created successfully (ID: {id}).', ['id' => $site_uuid]);
 
+        // Register cleanup handler for signal handling
+        if ($terminus = \Pantheon\Terminus\Terminus::getInstance()) {
+            $this->log()->debug('Registering cleanup handler for site: {site_uuid}', ['site_uuid' => $site_uuid]);
+            $terminus->registerCleanupHandler(function () use ($site_uuid) {
+                $this->log()->notice('Cleanup handler called for site: {site_uuid}', ['site_uuid' => $site_uuid]);
+                $this->cleanupPantheonSite($site_uuid, 'Interrupted by signal');
+            });
+            $this->log()->debug('Cleanup handler registered successfully for site: {site_uuid}', ['site_uuid' => $site_uuid]);
+        } else {
+            $this->log()->error('Could not get Terminus instance to register cleanup handler');
+        }
+
         // 4. Interact with go-vcs-service: Create Workflow
         $this->log()->notice('Initiating workflow with VCS service...');
         $vcs_workflow_data = [
@@ -495,7 +507,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->debug('VCS auth URL: {url}', ['url' => $auth_url]);
             // GitHub requires an authorization URL.
             if ($vcs_provider === 'github' && (is_null($auth_url) || $auth_url === '""')) {
-                $this->cleanup($site_uuid);
+                $this->cleanupPantheonSite($site_uuid, 'No vcs_auth_link returned');
                 throw new TerminusException(
                     'Error authorizing with vcs service: {error_message}',
                     ['error_message' => 'No vcs_auth_link returned']
@@ -933,6 +945,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      */
     protected function cleanupPantheonSite(string $site_uuid, string $failure_reason, bool $cleanup_vcs = true): void
     {
+        $this->log()->debug('cleanupPantheonSite called with site_uuid: {site_uuid}, reason: {reason}', ['site_uuid' => $site_uuid, 'reason' => $failure_reason]);
         $this->log()->error('Site creation failed: {reason}', ['reason' => $failure_reason]);
         $this->log()->notice("Attempting to clean up Pantheon site (ID: {id})...", ['id' => $site_uuid]);
 
