@@ -454,16 +454,21 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
         $this->log()->notice('Pantheon site record created successfully (ID: {id}).', ['id' => $site_uuid]);
 
-        // Register cleanup handler for signal handling
-        if ($terminus = \Pantheon\Terminus\Terminus::getInstance()) {
-            $this->log()->debug('Registering cleanup handler for site: {site_uuid}', ['site_uuid' => $site_uuid]);
-            $terminus->registerCleanupHandler(function () use ($site_uuid) {
-                $this->log()->notice('Cleanup handler called for site: {site_uuid}', ['site_uuid' => $site_uuid]);
-                $this->cleanupPantheonSite($site_uuid, 'Interrupted by signal');
-            });
-            $this->log()->debug('Cleanup handler registered successfully for site: {site_uuid}', ['site_uuid' => $site_uuid]);
+        // Register cleanup handler for signal handling (requires Terminus core with signal handling support)
+        if (method_exists(\Pantheon\Terminus\Terminus::class, 'getInstance') &&
+            method_exists(\Pantheon\Terminus\Terminus::class, 'registerCleanupHandler')) {
+            if ($terminus = \Pantheon\Terminus\Terminus::getInstance()) {
+                $this->log()->debug('Registering cleanup handler for site: {site_uuid}', ['site_uuid' => $site_uuid]);
+                $terminus->registerCleanupHandler(function () use ($site_uuid) {
+                    $this->log()->notice('Cleanup handler called for site: {site_uuid}', ['site_uuid' => $site_uuid]);
+                    $this->cleanupPantheonSite($site_uuid, 'Interrupted by signal');
+                });
+                $this->log()->debug('Cleanup handler registered successfully for site: {site_uuid}', ['site_uuid' => $site_uuid]);
+            } else {
+                $this->log()->debug('Could not get Terminus instance to register cleanup handler');
+            }
         } else {
-            $this->log()->error('Could not get Terminus instance to register cleanup handler');
+            $this->log()->debug('Signal handling not available in this version of Terminus core');
         }
 
         // 4. Interact with go-vcs-service: Create Workflow
