@@ -455,8 +455,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Pantheon site record created successfully (ID: {id}).', ['id' => $site_uuid]);
 
         // Register cleanup handler for signal handling (requires Terminus core with signal handling support)
-        if (method_exists(\Pantheon\Terminus\Terminus::class, 'getInstance') &&
-            method_exists(\Pantheon\Terminus\Terminus::class, 'registerCleanupHandler')) {
+        if (
+            method_exists(\Pantheon\Terminus\Terminus::class, 'getInstance') &&
+            method_exists(\Pantheon\Terminus\Terminus::class, 'registerCleanupHandler')
+        ) {
             if ($terminus = \Pantheon\Terminus\Terminus::getInstance()) {
                 $this->log()->debug('Registering cleanup handler for site: {site_uuid}', ['site_uuid' => $site_uuid]);
                 $terminus->registerCleanupHandler(function () use ($site_uuid) {
