@@ -549,6 +549,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($vcs_org) {
             if (isset($installations_map[$vcs_org])) {
                 $installation_id = $installations_map[$vcs_org];
+                $installation_human_name = $vcs_org;
             }
         }
 
@@ -638,7 +639,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $repo_action_working = "linking";
             $this->log()->notice("Linking existing repository '{repo}' as requested. Repository should exist at this point and the GitHub application should have access to it, otherwise this will fail.", ['repo' => $repo_name]);
             if ($is_interactive && $existing_installation && !$create_repo && $vcs_provider == 'github') {
-                $this->pauseForGithubRepoAccess($installation_human_name ?? '', $installation_id ?? '', 30);
+                $this->pauseForGithubRepoAccess($installation_human_name ?? '', 60);
             }
         }
         $vcs_id = array_search($vcs_provider, $this->vcs_providers);
@@ -827,15 +828,14 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     /**
      * Pauses execution to allow user to ensure repo access.
      */
-    private function pauseForGithubRepoAccess(string $installation_human_name, $installation_id, int $timeout = 30)
+    private function pauseForGithubRepoAccess(string $installation_human_name, int $timeout)
     {
         $installation_link = sprintf(
-            'https://github.com/organizations/%s/settings/installations/%s',
+            'https://github.com/%s',
             $installation_human_name,
-            $installation_id
         );
         $this->log()->notice(
-            "If you have not already done so, please ensure that the application has access to the repository by visiting: {url}",
+        "If you have not already done so, please ensure that the application has access to the repository by visiting your GitHub account: {url}, then Settings -> Applications. Select the current application and ensure it has access to the repository you wish to use.",
             ['url' => $installation_link]
         );
         $this->log()->notice(
