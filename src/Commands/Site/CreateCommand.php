@@ -835,7 +835,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $installation_human_name,
         );
         $this->log()->notice(
-        "If you have not already done so, please ensure that the application has access to the repository by visiting your GitHub account: {url}, then Settings -> Applications. Select the current application and ensure it has access to the repository you wish to use.",
+            "If you have not already done so, please ensure that the application has access to the repository by visiting your GitHub account: {url}, " .
+            "then Settings -> Applications. Select the current application and ensure it has access to the repository you wish to use.",
             ['url' => $installation_link]
         );
         $this->log()->notice(
