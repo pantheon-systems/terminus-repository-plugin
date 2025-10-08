@@ -549,6 +549,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($vcs_org) {
             if (isset($installations_map[$vcs_org])) {
                 $installation_id = $installations_map[$vcs_org];
+                $installation_human_name = $vcs_org;
             }
         }
 
@@ -595,8 +596,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         $site_details = null;
+        $existing_installation = true;
 
         if ($installation_id === 'new') {
+            $existing_installation = false;
             $site_details = $this->handleNewInstallation($vcs_provider, $auth_url, $site_uuid, $options);
             $installation_id = $site_details['installation_id'] ?? null;
         } else {
@@ -626,11 +629,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 6. Create Repository via go-vcs-service (repoCreate)
+        $repo_action_done = "created";
+        $repo_action_working = "creating";
         $create_repo = $options['create-repo'];
         if ($create_repo) {
             $this->log()->notice("Creating repository '{repo}'...", ['repo' => $repo_name]);
         } else {
-            $this->log()->notice("Linking existing repository '{repo}' as requested. Repository should exist at this point, otherwise this will fail.", ['repo' => $repo_name]);
+            $repo_action_done = "linked";
+            $repo_action_working = "linking";
+            $this->log()->notice("Linking existing repository '{repo}' as requested. Repository should exist at this point and the GitHub application should have access to it, otherwise this will fail.", ['repo' => $repo_name]);
+            if ($is_interactive && $existing_installation && !$create_repo && $vcs_provider == 'github') {
+                $this->pauseForGithubRepoAccess($installation_human_name ?? '', 60);
+            }
         }
         $vcs_id = array_search($vcs_provider, $this->vcs_providers);
         $repo_create_data = [
@@ -650,13 +660,25 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             if (!$target_repo_url) {
                 throw new TerminusException('VCS service did not return repository URL after creation.');
             }
-            $this->log()->notice('VCS repository created successfully: {url}', ['url' => $target_repo_url]);
+            $this->log()->notice('VCS repository {action} successfully: {url}', [
+                'action' => $repo_action_done,
+                'url' => $target_repo_url,
+            ]);
         } catch (\Throwable $t) {
-            $this->log()->error('Error creating repository via VCS service: {error_message}', ['error_message' => $t->getMessage()]);
-            $this->cleanupPantheonSite($site_uuid, 'Failed to create repository via VCS service.');
+            $message = $t->getMessage();
+            if (!$create_repo && $vcs_provider == 'github') {
+                if (strpos($message, 'Code: 404') !== false) {
+                    $this->log()->error('The repository could not be found. Please ensure it exists and that the GitHub application has access to it.');
+                }
+            }
+            $this->log()->error('Error {action} repository via VCS service: {error_message}', [
+                'action' => $repo_action_working,
+                'error_message' => $message
+            ]);
+            $this->cleanupPantheonSite($site_uuid, printf("Error %s repository via VCS service.", $repo_action_working));
             throw new TerminusException(
-                'Error creating repository via VCS service: {error_message}',
-                ['error_message' => $t->getMessage()]
+                'Error {action} repository via VCS service: {error_message}',
+                ['action' => $repo_action_working, 'error_message' => $message]
             );
         }
 
@@ -800,6 +822,38 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
         if ($clone_repo) {
             $this->log()->notice('Code repository cloned successfully to the current directory.');
+        }
+    }
+
+    /**
+     * Pauses execution to allow user to ensure repo access.
+     */
+    private function pauseForGithubRepoAccess(string $installation_human_name, int $timeout)
+    {
+        $installation_link = sprintf(
+            'https://github.com/%s',
+            $installation_human_name,
+        );
+        $this->log()->notice(
+            "If you have not already done so, please ensure that the application has access to the repository by visiting your GitHub account: {url}, " .
+            "then Settings -> Applications. Select the current application and ensure it has access to the repository you wish to use.",
+            ['url' => $installation_link]
+        );
+        $this->log()->notice(
+            "Pausing for up to {$timeout} seconds to allow time for you to complete this step if needed. Press enter to continue..."
+        );
+
+        $answered = false;
+        $stream = STDIN;
+        $read = [$stream];
+        $write = null;
+        $except = null;
+
+        if (stream_select($read, $write, $except, $timeout)) {
+            $answered = true;
+        }
+        if (!$answered) {
+            $this->log()->notice("Continuing after {$timeout} seconds...");
         }
     }
 
