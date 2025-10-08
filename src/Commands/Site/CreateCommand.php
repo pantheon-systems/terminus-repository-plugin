@@ -638,26 +638,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $repo_action_working = "linking";
             $this->log()->notice("Linking existing repository '{repo}' as requested. Repository should exist at this point and the GitHub application should have access to it, otherwise this will fail.", ['repo' => $repo_name]);
             if ($is_interactive && $existing_installation && !$create_repo && $vcs_provider == 'github') {
-                $timeout = 30;
-                $installation_link = sprintf('https://github.com/organizations/%s/settings/installations/%s', $installation_human_name, $installation_id);
-                $this->log()->notice("If you have not already done so, please ensure that the application has access to the repository by visiting: {url}", ['url' => $installation_link]);
-                $this->log()->notice("Pausing for up to {$timeout} seconds to allow time for you to complete this step if needed. Press any key to continue immediately...");
-
-                $start = time();
-                $answered = false;
-
-                // Prepare streams for stream_select.
-                $stream = STDIN;
-                $read = [$stream];
-                $write = null;
-                $except = null;
-
-                if (stream_select($read, $write, $except, $timeout)) {
-                    $answered = true;
-                }
-                if (!$answered) {
-                    $this->log()->notice("Continuing after {$timeout} seconds...");
-                }
+                $this->pauseForGithubRepoAccess($installation_human_name ?? '', $installation_id ?? '', 30);
             }
         }
         $vcs_id = array_search($vcs_provider, $this->vcs_providers);
@@ -840,6 +821,38 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
         if ($clone_repo) {
             $this->log()->notice('Code repository cloned successfully to the current directory.');
+        }
+    }
+
+    /**
+     * Pauses execution to allow user to ensure repo access.
+     */
+    private function pauseForGithubRepoAccess(string $installation_human_name, $installation_id, int $timeout = 30)
+    {
+        $installation_link = sprintf(
+            'https://github.com/organizations/%s/settings/installations/%s',
+            $installation_human_name,
+            $installation_id
+        );
+        $this->log()->notice(
+            "If you have not already done so, please ensure that the application has access to the repository by visiting: {url}",
+            ['url' => $installation_link]
+        );
+        $this->log()->notice(
+            "Pausing for up to {$timeout} seconds to allow time for you to complete this step if needed. Press enter to continue..."
+        );
+
+        $answered = false;
+        $stream = STDIN;
+        $read = [$stream];
+        $write = null;
+        $except = null;
+
+        if (stream_select($read, $write, $except, $timeout)) {
+            $answered = true;
+        }
+        if (!$answered) {
+            $this->log()->notice("Continuing after {$timeout} seconds...");
         }
     }
 
