@@ -38,12 +38,15 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     // Wait time for GitHub app installation to succeed.
     protected const AUTH_LINK_TIMEOUT = 600;
     protected const ADD_NEW_ORG_TEXT = 'Add to a new org';
+    protected const REDIRECT_URL = 'https://docs.pantheon.io/github-application';
 
     // Default timeout.
     protected const DEFAULT_TIMEOUT = 600;
 
     // Supported VCS types (can be expanded later)
     protected $vcs_providers = ['pantheon', 'github', 'gitlab', 'bitbucket'];
+
+    protected Process $serverProcess;
 
     /**
      * Creates a new site
@@ -138,6 +141,13 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         } else {
             // For now, only github is supported other than pantheon
             $this->createExternallyHostedSite($site_name, $label, $upstream, $user, $options);
+        }
+    }
+
+    public function __destruct()
+    {
+        if (isset($this->serverProcess) && $this->serverProcess->isRunning()) {
+            $this->serverProcess->stop(0);
         }
     }
 
@@ -437,7 +447,9 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $existing_installations_data = $installations_resp['data'] ?? [];
         $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($existing_installations_data, true)]);
 
-        $auth_links_resp = $vcs_client->getAuthLinks($pantheon_org->id, $user->id, $site_type);
+        list($url, $flag_file) = $this->startTemporaryServer(self::AUTH_LINK_TIMEOUT);
+
+        $auth_links_resp = $vcs_client->getAuthLinks($pantheon_org->id, $user->id, $site_type, $url);
         $auth_links = $auth_links_resp['data'] ?? null;
         $this->log()->debug('VCS Auth Links: {auth_links}', ['auth_links' => print_r($auth_links, true)]);
         $auth_url = null;
@@ -547,29 +559,30 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         if ($installation_id === 'new') {
             $existing_installation = false;
-            // TODO: empty string was originally site_uuid but we do not have that yet.
-            $site_details = $this->handleNewInstallation($vcs_provider, $auth_url, '', $options);
-            $installation_id = $site_details['installation_id'] ?? null;
-        } else {
-            // Existing installation, we need to authorize it.
-            $authorize_data = [
-                'site_uuid' => $site_uuid,
-                'user_uuid' => $user->id,
-                'installation_id' => (int) $installation_id,
-                'org_uuid' => $pantheon_org->id,
-            ];
-            try {
-                $data = $this->getVcsClient()->authorize($authorize_data);
-                if (!$data['success']) {
-                    throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
+            $success = $this->handleNewInstallation($vcs_provider, $auth_url, $flag_file, $options);
+            // TODO: Temporarily only handling GitHub new installation flow.
+            if (!$success['success']) {
+                $this->cleanup($site_uuid);
+                throw new TerminusException('Error authorizing with VCS service: Timeout waiting for authorization to complete.');
+            }
+            $installations_resp = $vcs_client->getInstallations($pantheon_org->id, $user->id);
+            $new_existing_installations_data = $installations_resp['data'] ?? [];
+            $this->log()->debug('New existing installations: {installations}', ['installations' => print_r($new_existing_installations_data, true)]);
+            // Look for a new installation that wasn't in the previous list.
+            foreach ($new_existing_installations_data as $installation) {
+                if (strtolower($installation->alias) !== $vcs_provider || $installation->installation_type == 'front-end') {
+                    continue;
                 }
-                $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
-                $site_details = (array) $site_details['data'][0];
-            } catch (TerminusException $e) {
-                $this->cleanupPantheonSite($site_uuid, 'Failed to authorize existing VCS installation.');
-                throw $e;
+                if (!isset($installations[$installation->installation_id])) {
+                    $installation_id = $installation->installation_id;
+                    $installation_human_name = $installation->login_name;
+                    break;
+                }
             }
         }
+
+        // 5. Validate repository exists (or not) depending on create-repo option.
+        // TODO: HERE!!!!
 
 
         // TODO: NOTHING HAS CHANGED BELOW THIS LINE!
@@ -627,6 +640,26 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 'Error initiating workflow with VCS service: {error_message}',
                 ['error_message' => $t->getMessage()]
             );
+        }
+
+        // TODO: Add a number here!
+        // Existing installation, we need to authorize it.
+        $authorize_data = [
+            'site_uuid' => $site_uuid,
+            'user_uuid' => $user->id,
+            'installation_id' => (int) $installation_id,
+            'org_uuid' => $pantheon_org->id,
+        ];
+        try {
+            $data = $this->getVcsClient()->authorize($authorize_data);
+            if (!$data['success']) {
+                throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
+            }
+            $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
+            $site_details = (array) $site_details['data'][0];
+        } catch (TerminusException $e) {
+            $this->cleanupPantheonSite($site_uuid, 'Failed to authorize existing VCS installation.');
+            throw $e;
         }
 
         if (!$site_details['is_active']) {
@@ -864,6 +897,71 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     }
 
     /**
+     * Start temporary server to handle app installation redirects.
+     * Returns array of (url, flag_file).
+     */
+    private function startTemporaryServer(int $timeout = 600): array
+    {
+        $this->log()->debug('Starting temporary server to handle VCS installation redirects if needed...');
+
+        $token = bin2hex(random_bytes(16));
+        $port = $this->findAvailablePort();
+        $url = "http://localhost:{$port}/callback?token={$token}";
+
+        list($server_script, $flag_file) = $this->createServerScript($token, self::REDIRECT_URL);
+        $process = new Process(['php', '-S', "localhost:{$port}", $server_script]);
+        $process->start();
+
+        $this->serverProcess = $process;
+
+        $this->log()->debug("Temporary server started at: {$url}");
+
+        return [$url, $flag_file];
+    }
+
+    /**
+     * Find an available port on localhost.
+     */
+    private function findAvailablePort(): int
+    {
+        $socket = stream_socket_server("tcp://127.0.0.1:0");
+        if ($socket === false) {
+            throw new \RuntimeException("Cannot find open port");
+        }
+        $address = stream_socket_get_name($socket, false);
+        fclose($socket);
+        return (int)substr(strrchr($address, ':'), 1);
+    }
+
+    /**
+     * Create a temporary PHP script to handle server requests.
+     */
+    private function createServerScript(string $token, $redirect_url): array
+    {
+        $scriptPath = sys_get_temp_dir() . "/notify_server_$token.php";
+        $flagFile = sys_get_temp_dir() . "/terminus_notify_$token";
+
+        $php = <<<PHP
+<?php
+parse_str(\$_SERVER['QUERY_STRING'] ?? '', \$query);
+\$request_uri = \$_SERVER['REQUEST_URI'] ?? '';
+if (strpos(\$request_uri, '/callback') === 0 && (\$query['token'] ?? '') === '$token') {
+    echo "Authorization successful. You can close this window.\n";
+    file_put_contents('$flagFile', 'done');
+    header('Location: ' . '$redirect_url');
+    exit;
+} else {
+    echo "ERROR: Invalid request.\n";
+    http_response_code(403);
+    echo "Forbidden";
+}
+PHP;
+        file_put_contents($scriptPath, $php);
+        return [$scriptPath, $flagFile];
+    }
+
+
+    /**
      * Clone the repository using the converted SSH URL.
      */
     private function cloneRepo($repo_url)
@@ -1028,11 +1126,11 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * Handle new installation based on VCS provider.
      * Currently only supports GitHub.
      */
-    protected function handleNewInstallation(string $vcs_provider, string $auth_url, string $site_uuid, array $options): array
+    protected function handleNewInstallation(string $vcs_provider, string $auth_url, string $flag_file, array $options): array
     {
         switch ($vcs_provider) {
             case 'github':
-                return $this->handleGithubNewInstallation($auth_url, $site_uuid);
+                return $this->handleGithubNewInstallation($auth_url, $flag_file);
 
             case 'gitlab':
                 return $this->handleGitLabNewInstallation($site_uuid, $options);
@@ -1044,7 +1142,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      * Handle Github new installation browser flow.
      * Adapted from RepositorySiteCreateCommand::handleGithubNewInstallation
      */
-    protected function handleGithubNewInstallation(string $auth_url, string $site_uuid): array
+    protected function handleGithubNewInstallation(string $auth_url, string $flag_file): array
     {
         // Ensure auth_url is unquoted for opening in the browser.
         $url_to_open = trim($auth_url, '"');
@@ -1065,20 +1163,29 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $minutes = (int) (self::AUTH_LINK_TIMEOUT / 60);
 
         $this->log()->notice(sprintf("Waiting for authorization to complete in browser (up to %d minutes)...", $minutes));
-
-        // Start a very simple PHP built-in web server to catch the redirect and signal completion.
-        // This is a blocking call that will run until the server exits or times out.
         
-
-        // processSiteDetails polls the getSiteDetails endpoint until active or timeout
-        $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, self::AUTH_LINK_TIMEOUT); // 600 seconds = 10 minutes
-
-        if (empty($site_details) || !$site_details['is_active']) {
-             // Don't cleanup here, let the caller handle cleanup based on this failure
-             throw new TerminusException('GitHub App authorization timed out or failed. Please check the browser window and try again.');
+        // A server should be running by now and will eventually (if succeeded) write 'done' to the flag file.
+        $start_time = time();
+        $success = false;
+        while (true) {
+            if (file_exists($flag_file)) {
+                $this->log()->notice('Authorization confirmed via browser.');
+                // Cleanup flag file
+                unlink($flag_file);
+                $success = true;
+                break;
+            }
+            if ((time() - $start_time) > self::AUTH_LINK_TIMEOUT) {
+                // Timeout
+                $this->log()->error('Authorization timed out.');
+                break;
+            }
+            // Sleep for a short interval before checking again
+            usleep(500000); // 0.5 seconds
         }
 
-        return $site_details;
+        // TODO: How to fix this?
+        return ['success' => $success];
     }
 
     /**

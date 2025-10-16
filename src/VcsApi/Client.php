@@ -406,7 +406,7 @@ class Client implements ConfigAwareInterface
     /**
      * Get auth links.
      */
-    public function getAuthLinks(string $org_uuid, string $user_uuid, string $site_type): array
+    public function getAuthLinks(string $org_uuid, string $user_uuid, string $site_type, string $callback_url): array
     {
         $request_options = [
             'method' => 'POST',
@@ -414,7 +414,7 @@ class Client implements ConfigAwareInterface
                 'user_uuid' => $user_uuid,
                 'org_uuid' => $org_uuid,
                 'site_type' => $site_type,
-                'redirect_uri' => 'https://docs.pantheon.io/github-application',
+                'redirect_uri' => $callback_url,
             ],
         ];    
 
