@@ -582,11 +582,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 5. Validate repository exists (or not) depending on create-repo option.
-        // TODO: HERE!!!!
+        // TODO: DEVX-5820.
 
 
-        // TODO: NOTHING HAS CHANGED BELOW THIS LINE!
-        // 3. Create Site Record in Pantheon
+        // 6. Create Site Record in Pantheon
         $this->log()->notice('Creating Pantheon site ...');
         $workflow_options = [
             'label' => $label,
@@ -609,7 +608,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
         $this->log()->notice('Pantheon site record created successfully (ID: {id}).', ['id' => $site_uuid]);
 
-        // 4. Interact with go-vcs-service: Create Workflow
+        // 7. Interact with go-vcs-service: Create Workflow
         $this->log()->notice('Initiating workflow with VCS service...');
         $vcs_workflow_data = [
             'user_uuid' => $user->id,
@@ -620,8 +619,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         ];
 
         $vcs_workflow_response = null;
-        $auth_url = null;
-        $existing_installations_data = [];
         $vcs_workflow_uuid = null;
 
         try {
@@ -642,8 +639,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             );
         }
 
-        // TODO: Add a number here!
-        // Existing installation, we need to authorize it.
+        // 8. Existing installation, we need to authorize it.
         $authorize_data = [
             'site_uuid' => $site_uuid,
             'user_uuid' => $user->id,
@@ -667,7 +663,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             throw new TerminusException('Error authorizing with VCS service: Site is not yet active according to the service.');
         }
 
-        // 6. Create Repository via go-vcs-service (repoCreate)
+        // 9. Create Repository via go-vcs-service (repoCreate)
         $repo_action_done = "created";
         $repo_action_working = "creating";
         $create_repo = $options['create-repo'];
@@ -721,7 +717,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             );
         }
 
-        // 7. Install webhook if needed.
+        // 10. Install webhook if needed.
         if ($vcs_provider != 'github') {
             $this->log()->notice('Next: Installing webhook...');
             try {
@@ -745,7 +741,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('Webhook installed');
         }
 
-        // 8. Deploy Pantheon Product/Upstream (using ICR upstream)
+        // 11. Deploy Pantheon Product/Upstream (using ICR upstream)
         $site = $this->getSiteById($site_uuid);
         if (!$site) {
              // Should not happen if we got this far, but check.
@@ -773,7 +769,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             throw new TerminusException('Error deploying product: {msg}', ['msg' => $e->getMessage()]);
         }
 
-        // 9. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
+        // 12. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
         if ($preferred_platform == "sta") {
             try {
                 $this->log()->notice('Waiting for project to be ready...');
@@ -823,7 +819,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 ]);
             }
 
-            // 10. Wait for workflow and site to wake.
+            // 13. Wait for workflow and site to wake.
             if ($upstream->get('framework') !== 'nodejs') {
                 $this->log()->notice('Waiting for sync code workflow to succeed...');
                 try {
@@ -854,7 +850,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
         }
 
-        // 11. Final Success Message & Wait for Wake
+        // 14. Final Success Message & Wait for Wake
         $this->log()->notice('---');
         $this->log()->notice('Site "{site}" created successfully with GitHub repository!', ['site' => $site->getName()]);
         $this->log()->notice('GitHub Repository: {url}', ['url' => $target_repo_url]);
