@@ -392,6 +392,36 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Get existing installations.
+     */
+    public function getInstallations(string $org_id, string $user_id): array
+    {
+        $request_options = [
+            'method' => 'GET',
+        ];
+
+        return $this->requestApi(sprintf('installation/user/%s/org/%s', $user_id, $org_id), $request_options, "X-Pantheon-Session");
+    }
+
+    /**
+     * Get auth links.
+     */
+    public function getAuthLinks(string $org_uuid, string $user_uuid, string $site_type): array
+    {
+        $request_options = [
+            'method' => 'POST',
+            'json' => [
+                'user_uuid' => $user_uuid,
+                'org_uuid' => $org_uuid,
+                'site_type' => $site_type,
+                'redirect_uri' => 'https://docs.pantheon.io/github-application',
+            ],
+        ];    
+
+        return $this->requestApi('installation/auth', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Performs the request to API path.
      *
      * @param string $path

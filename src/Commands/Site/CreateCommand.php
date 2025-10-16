@@ -396,6 +396,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $input = $this->input();
         $output = $this->output();
         $is_interactive = $input->isInteractive();
+        $vcs_client = $this->getVcsClient();
 
         // Should be 'github/gitlab/bitbucket'.
         $vcs_provider = strtolower($options['vcs-provider']);
@@ -431,87 +432,33 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $site_type = $this->getSiteType($upstream);
         $preferred_platform = $this->getPreferredPlatformForFramework($site_type);
 
-        // 3. Create Site Record in Pantheon
-        $this->log()->notice('Creating Pantheon site ...');
-        $workflow_options = [
-            'label' => $label,
-            'site_name' => $site_name,
-            'has_external_vcs' => true,
-            'preferred_platform' => $preferred_platform,
-            'organization_id' => $pantheon_org->id,
-        ];
-        $region = $options['region'] ?? $this->config->get('command_site_options_region');
-        if ($region) {
-            $workflow_options['preferred_zone'] = $region;
-            $this->log()->notice('Attempting to create site in region: {region}', compact('region'));
-        }
+        // 3. Get existing installations + link to create new installation.
+        $installations_resp = $vcs_client->getInstallations($pantheon_org->id, $user->id);
+        $existing_installations_data = $installations_resp['data'] ?? [];
+        $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($existing_installations_data, true)]);
 
-        $site_create_workflow = $this->sites()->create($workflow_options);
-        $this->processWorkflow($site_create_workflow);
-        $site_uuid = $site_create_workflow->get('waiting_for_task')->site_id ?? null;
-        if (!$site_uuid) {
-            throw new TerminusException('Could not get site ID from site creation workflow.');
-        }
-        $this->log()->notice('Pantheon site record created successfully (ID: {id}).', ['id' => $site_uuid]);
-
-        // 4. Interact with go-vcs-service: Create Workflow
-        $this->log()->notice('Initiating workflow with VCS service...');
-        $vcs_workflow_data = [
-            'user_uuid' => $user->id,
-            'org_uuid' => $pantheon_org->id,
-            'site_uuid' => $site_uuid,
-            'site_name' => $site_name,
-            'site_type' => $site_type,
-        ];
-
-        $vcs_client = $this->getVcsClient();
-        $vcs_workflow_response = null;
+        $auth_links_resp = $vcs_client->getAuthLinks($pantheon_org->id, $user->id, $site_type);
+        $auth_links = $auth_links_resp['data'] ?? null;
+        $this->log()->debug('VCS Auth Links: {auth_links}', ['auth_links' => print_r($auth_links, true)]);
         $auth_url = null;
-        $existing_installations_data = [];
-        $vcs_workflow_uuid = null;
-
-        try {
-            $vcs_workflow_response = $vcs_client->createWorkflow($vcs_workflow_data);
-            $this->log()->debug("VCS Service Workflow Response: " . print_r($vcs_workflow_response, true));
-
-            // Normalize data and extract key info.
-            $data = (array) ($vcs_workflow_response['data'][0] ?? []);
-            $vcs_workflow_uuid = $data['workflow_uuid'] ?? null;
-            $this->log()->debug('VCS workflow UUID: {uuid}', ['uuid' => $vcs_workflow_uuid]);
-            $existing_installations_data = $data['existing_installations'] ?? [];
-            $this->log()->debug('Existing installations: {installations}', ['installations' => print_r($existing_installations_data, true)]);
-
-            // Find the auth URL.
-            $auth_links = $data['vcs_auth_links'] ?? null;
-            $this->log()->debug('VCS auth links: {links}', ['links' => print_r($auth_links, true)]);
-            $auth_url = null;
-            // Iterate over the two possible auth options for the given VCS.
-            foreach (['app', 'oauth'] as $auth_option) {
-                if (isset($auth_links->{sprintf("%s_%s", $vcs_provider, $auth_option)})) {
-                    $auth_url = sprintf('"%s"', $auth_links->{sprintf("%s_%s", $vcs_provider, $auth_option)});
-                    break;
-                }
+        // Iterate over the two possible auth options for the given VCS.
+        foreach (['app', 'oauth'] as $auth_option) {
+            if (isset($auth_links->{sprintf("%s_%s", $vcs_provider, $auth_option)})) {
+                $auth_url = sprintf('"%s"', $auth_links->{sprintf("%s_%s", $vcs_provider, $auth_option)});
+                break;
             }
-            $this->log()->debug('VCS auth URL: {url}', ['url' => $auth_url]);
-            // GitHub requires an authorization URL.
-            if ($vcs_provider === 'github' && (is_null($auth_url) || $auth_url === '""')) {
-                $this->cleanup($site_uuid);
-                throw new TerminusException(
-                    'Error authorizing with vcs service: {error_message}',
-                    ['error_message' => 'No vcs_auth_link returned']
-                );
-            }
-            $this->log()->notice('VCS service workflow initiated successfully.');
-        } catch (\Throwable $t) {
-            $this->cleanupPantheonSite($site_uuid, 'Failed to initiate workflow with VCS service.');
+        }
+
+        // GitHub requires an authorization URL.
+        if ($vcs_provider === 'github' && (is_null($auth_url) || $auth_url === '""')) {
+            $this->cleanup($site_uuid);
             throw new TerminusException(
-                'Error initiating workflow with VCS service: {error_message}',
-                ['error_message' => $t->getMessage()]
+                'Error authorizing with vcs service: {error_message}',
+                ['error_message' => 'No vcs_auth_link returned']
             );
         }
 
-
-        // 5. Figure out what installation to use and authorize (or create new installation).
+        // 4. Figure out what installation to use and authorize (or create new installation).
         $vcs_org = $options['vcs-org'];
 
         // Installations is the Installation class objects array.
@@ -521,12 +468,12 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if (!empty($existing_installations_data)) {
             foreach ($existing_installations_data as $installation) {
                 // Filter for current VCS provider and backend installations
-                if (strtolower($installation->vendor) !== $vcs_provider || $installation->installation_type == 'front-end') {
+                if (strtolower($installation->alias) !== $vcs_provider || $installation->installation_type == 'front-end') {
                     continue;
                 }
                 $installations[$installation->installation_id] = new Installation(
                     $installation->installation_id,
-                    $installation->vendor,
+                    $installation->alias,
                     $installation->login_name
                 );
                 $installations_map[strtolower($installation->login_name)] = $installation->installation_id;
@@ -600,7 +547,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         if ($installation_id === 'new') {
             $existing_installation = false;
-            $site_details = $this->handleNewInstallation($vcs_provider, $auth_url, $site_uuid, $options);
+            // TODO: empty string was originally site_uuid but we do not have that yet.
+            $site_details = $this->handleNewInstallation($vcs_provider, $auth_url, '', $options);
             $installation_id = $site_details['installation_id'] ?? null;
         } else {
             // Existing installation, we need to authorize it.
@@ -621,6 +569,64 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 $this->cleanupPantheonSite($site_uuid, 'Failed to authorize existing VCS installation.');
                 throw $e;
             }
+        }
+
+
+        // TODO: NOTHING HAS CHANGED BELOW THIS LINE!
+        // 3. Create Site Record in Pantheon
+        $this->log()->notice('Creating Pantheon site ...');
+        $workflow_options = [
+            'label' => $label,
+            'site_name' => $site_name,
+            'has_external_vcs' => true,
+            'preferred_platform' => $preferred_platform,
+            'organization_id' => $pantheon_org->id,
+        ];
+        $region = $options['region'] ?? $this->config->get('command_site_options_region');
+        if ($region) {
+            $workflow_options['preferred_zone'] = $region;
+            $this->log()->notice('Attempting to create site in region: {region}', compact('region'));
+        }
+
+        $site_create_workflow = $this->sites()->create($workflow_options);
+        $this->processWorkflow($site_create_workflow);
+        $site_uuid = $site_create_workflow->get('waiting_for_task')->site_id ?? null;
+        if (!$site_uuid) {
+            throw new TerminusException('Could not get site ID from site creation workflow.');
+        }
+        $this->log()->notice('Pantheon site record created successfully (ID: {id}).', ['id' => $site_uuid]);
+
+        // 4. Interact with go-vcs-service: Create Workflow
+        $this->log()->notice('Initiating workflow with VCS service...');
+        $vcs_workflow_data = [
+            'user_uuid' => $user->id,
+            'org_uuid' => $pantheon_org->id,
+            'site_uuid' => $site_uuid,
+            'site_name' => $site_name,
+            'site_type' => $site_type,
+        ];
+
+        $vcs_workflow_response = null;
+        $auth_url = null;
+        $existing_installations_data = [];
+        $vcs_workflow_uuid = null;
+
+        try {
+            $vcs_workflow_response = $vcs_client->createWorkflow($vcs_workflow_data);
+            $this->log()->debug("VCS Service Workflow Response: " . print_r($vcs_workflow_response, true));
+
+            // Normalize data and extract key info.
+            $data = (array) ($vcs_workflow_response['data'][0] ?? []);
+            $vcs_workflow_uuid = $data['workflow_uuid'] ?? null;
+            $this->log()->debug('VCS workflow UUID: {uuid}', ['uuid' => $vcs_workflow_uuid]);
+
+            $this->log()->notice('VCS service workflow initiated successfully.');
+        } catch (\Throwable $t) {
+            $this->cleanupPantheonSite($site_uuid, 'Failed to initiate workflow with VCS service.');
+            throw new TerminusException(
+                'Error initiating workflow with VCS service: {error_message}',
+                ['error_message' => $t->getMessage()]
+            );
         }
 
         if (!$site_details['is_active']) {
@@ -1059,6 +1065,11 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $minutes = (int) (self::AUTH_LINK_TIMEOUT / 60);
 
         $this->log()->notice(sprintf("Waiting for authorization to complete in browser (up to %d minutes)...", $minutes));
+
+        // Start a very simple PHP built-in web server to catch the redirect and signal completion.
+        // This is a blocking call that will run until the server exits or times out.
+        
+
         // processSiteDetails polls the getSiteDetails endpoint until active or timeout
         $site_details = $this->getVcsClient()->processSiteDetails($site_uuid, self::AUTH_LINK_TIMEOUT); // 600 seconds = 10 minutes
 
