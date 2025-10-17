@@ -48,19 +48,11 @@ def getSiteDetails(id):
     if id not in workflows:
         return "Site not found", 404
 
-    workflow = workflows[id]
-
-    current_timestamp = time.time()
-
     data = {
         "site_details_id": id,
-        "is_active": False,
+        "is_active": "true",
         "installation_id": "1",
     }
-
-    # Polling this will return auth_pending for 15 seconds and then will change to auth_complete
-    if current_timestamp - workflow["timestamp"] > 15:
-        data["is_active"] = "true"
 
     return {
         "data": [
