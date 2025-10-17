@@ -92,9 +92,7 @@ def postAuthorize():
         return "Request body must be json", 400
 
     return {
-        "data": {
-            "success": "true"
-        }
+        "success": "true"
     }
 
 @app.route('/vcs/v1/site-details/<id>', methods=['DELETE'])
