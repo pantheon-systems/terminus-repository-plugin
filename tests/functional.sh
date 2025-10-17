@@ -12,6 +12,7 @@ terminus site:create $PANTHEON_SITE_CREATE_SITE_NAME $PANTHEON_SITE_CREATE_SITE_
 
 # Request server url in background.
 echo "Starting request server url script..."
+chmod +x $WORKSPACE/tests/request_server_url.sh
 $WORKSPACE/tests/request_server_url.sh &
 
 # Github hosted site create.
