@@ -86,6 +86,17 @@ def postRepoCreate():
         }
     }
 
+@app.route('/vcs/v1/authorize', methods=['POST'])
+def postAuthorize():
+    if not request.is_json:
+        return "Request body must be json", 400
+
+    return {
+        "data": {
+            "success": "true"
+        }
+    }
+
 @app.route('/vcs/v1/site-details/<id>', methods=['DELETE'])
 def cleanupSiteDetails(id):
     return id
