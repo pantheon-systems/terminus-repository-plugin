@@ -560,8 +560,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($installation_id === 'new') {
             $existing_installation = false;
             $success = $this->handleNewInstallation($vcs_provider, $auth_url, $flag_file, $options);
-            // TODO: Temporarily only handling GitHub new installation flow.
-            if (!$success['success']) {
+            if (!$success) {
                 $this->cleanup($site_uuid);
                 throw new TerminusException('Error authorizing with VCS service: Timeout waiting for authorization to complete.');
             }
@@ -1122,23 +1121,23 @@ PHP;
      * Handle new installation based on VCS provider.
      * Currently only supports GitHub.
      */
-    protected function handleNewInstallation(string $vcs_provider, string $auth_url, string $flag_file, array $options): array
+    protected function handleNewInstallation(string $vcs_provider, string $auth_url, string $flag_file, array $options): bool
     {
         switch ($vcs_provider) {
             case 'github':
                 return $this->handleGithubNewInstallation($auth_url, $flag_file);
 
             case 'gitlab':
-                return $this->handleGitLabNewInstallation($site_uuid, $options);
+                return $this->handleGitLabNewInstallation($options);
         }
-        return [];
+        return false;
     }
 
     /**
      * Handle Github new installation browser flow.
      * Adapted from RepositorySiteCreateCommand::handleGithubNewInstallation
      */
-    protected function handleGithubNewInstallation(string $auth_url, string $flag_file): array
+    protected function handleGithubNewInstallation(string $auth_url, string $flag_file): bool
     {
         // Ensure auth_url is unquoted for opening in the browser.
         $url_to_open = trim($auth_url, '"');
@@ -1180,14 +1179,13 @@ PHP;
             usleep(500000); // 0.5 seconds
         }
 
-        // TODO: How to fix this?
-        return ['success' => $success];
+        return $success;
     }
 
     /**
      * Handle GitLab new installation.
      */
-    protected function handleGitLabNewInstallation(string $site_uuid, array $options): array
+    protected function handleGitLabNewInstallation(string $site_uuid, array $options): bool
     {
         $token = $options['vcs-token'] ?? null;
         if (empty($token) && !$this->input()->isInteractive()) {
@@ -1231,7 +1229,8 @@ PHP;
             'vendor' => 2,
             'installation_type' => 'cms-site',
             'platform_user' => $user->id,
-            'site_uuid' => $site_uuid,
+            // TODO: Backend should be updated to not need site_uuid here.
+            'site_uuid' => '',
             'vcs_organization' => $group_name,
             // TODO: Cleanup in go-vcs-service to not need it.
             'pantheon_session' => 'UNUSED',
@@ -1241,14 +1240,6 @@ PHP;
             throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
         }
 
-        $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
-        $site_details = (array) $site_details['data'][0];
-
-        if (empty($site_details) || !($site_details['is_active'] ?? false)) {
-            // Don't cleanup here, let the caller handle cleanup based on this failure
-            throw new TerminusException('GitLab installation failed. Please try again and if the problem persists, contact support.');
-        }
-
-        return $site_details;
+        return true;
     }
 }
