@@ -90,5 +90,22 @@ def postRepoCreate():
 def cleanupSiteDetails(id):
     return id
 
+@app.route('/vcs/v1/installation/user/<user_id>/org/<org_id>', methods=['GET'])
+def getInstallationDetails(user_id, org_id):
+    return {
+        "data": []
+    }
+
+@app.route('/vcs/v1/installation/auth', methods=['POST'])
+def postInstallationAuth():
+    if not request.is_json:
+        return "Request body must be json", 400
+
+    return {
+        "data": {
+            "github_app": "https://github.com/login/oauth/authorize?client_id=1234567890"
+        }
+    }
+
 if __name__ == '__main__':
    app.run(host='0.0.0.0', port=port)
