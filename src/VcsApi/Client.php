@@ -416,7 +416,7 @@ class Client implements ConfigAwareInterface
                 'site_type' => $site_type,
                 'redirect_uri' => $callback_url,
             ],
-        ];    
+        ];
 
         return $this->requestApi('installation/auth', $request_options, "X-Pantheon-Session");
     }

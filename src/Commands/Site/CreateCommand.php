@@ -1158,7 +1158,7 @@ PHP;
         $minutes = (int) (self::AUTH_LINK_TIMEOUT / 60);
 
         $this->log()->notice(sprintf("Waiting for authorization to complete in browser (up to %d minutes)...", $minutes));
-        
+
         // A server should be running by now and will eventually (if succeeded) write 'done' to the flag file.
         $start_time = time();
         $success = false;
