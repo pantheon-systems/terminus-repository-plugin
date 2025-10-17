@@ -463,7 +463,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         // GitHub requires an authorization URL.
         if ($vcs_provider === 'github' && (is_null($auth_url) || $auth_url === '""')) {
-            $this->cleanup($site_uuid);
             throw new TerminusException(
                 'Error authorizing with vcs service: {error_message}',
                 ['error_message' => 'No vcs_auth_link returned']
@@ -561,7 +560,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $existing_installation = false;
             $success = $this->handleNewInstallation($vcs_provider, $auth_url, $flag_file, $options);
             if (!$success) {
-                $this->cleanup($site_uuid);
                 throw new TerminusException('Error authorizing with VCS service: Timeout waiting for authorization to complete.');
             }
             $installations_resp = $vcs_client->getInstallations($pantheon_org->id, $user->id);
@@ -910,6 +908,10 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->serverProcess = $process;
 
         $this->log()->debug("Temporary server started at: {$url}");
+        if (getenv('TESTING_MODE')) {
+            // Write url to a file for testing purposes.
+            file_put_contents('/tmp/terminus_test_server_url', $url);
+        }
 
         return [$url, $flag_file];
     }
