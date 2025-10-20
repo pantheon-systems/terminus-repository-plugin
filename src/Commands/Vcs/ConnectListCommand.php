@@ -73,5 +73,4 @@ class ConnectListCommand extends TerminusCommand implements RequestAwareInterfac
         $table = new RowsOfFields($table_data);
         return $table;
     }
-
 }
