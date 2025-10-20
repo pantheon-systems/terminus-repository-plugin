@@ -1,6 +1,6 @@
 <?php
 
-namespace Pantheon\TerminusRepository\Commands;
+namespace Pantheon\TerminusRepository\Commands\Github;
 
 use Pantheon\Terminus\Commands\TerminusCommand;
 use Pantheon\Terminus\Exceptions\TerminusException;
