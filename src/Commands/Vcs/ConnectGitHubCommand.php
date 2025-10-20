@@ -10,7 +10,7 @@ use Symfony\Component\Process\Process;
 use Pantheon\TerminusRepository\Traits\GithubInstallTrait;
 
 /**
- * Class GithubInstallCommand.
+ * Class ConnectGitHubCommand.
  *
  * @package Pantheon\TerminusRepository\Commands
  */

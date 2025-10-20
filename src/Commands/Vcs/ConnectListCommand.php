@@ -11,7 +11,7 @@ use Pantheon\Terminus\Commands\StructuredListTrait;
 use Consolidation\OutputFormatters\StructuredData\RowsOfFields;
 
 /**
- * Class GithubInstallCommand.
+ * Class ConnectListCommand.
  *
  * @package Pantheon\TerminusRepository\Commands
  */
