@@ -23,6 +23,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
+use Pantheon\TerminusRepository\Traits\GithubInstallTrait;
 
 /**
  * Creates a new site, potentially with an external Git repository.
@@ -33,6 +34,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     use WaitForWakeTrait;
     use WorkflowWaitTrait;
     use VcsClientAwareTrait;
+    use GithubInstallTrait;
 
     // Wait time for GitHub app installation to succeed.
     protected const AUTH_LINK_TIMEOUT = 600;
