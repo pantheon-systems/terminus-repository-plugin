@@ -48,19 +48,11 @@ def getSiteDetails(id):
     if id not in workflows:
         return "Site not found", 404
 
-    workflow = workflows[id]
-
-    current_timestamp = time.time()
-
     data = {
         "site_details_id": id,
-        "is_active": False,
+        "is_active": "true",
         "installation_id": "1",
     }
-
-    # Polling this will return auth_pending for 15 seconds and then will change to auth_complete
-    if current_timestamp - workflow["timestamp"] > 15:
-        data["is_active"] = "true"
 
     return {
         "data": [
@@ -86,9 +78,35 @@ def postRepoCreate():
         }
     }
 
+@app.route('/vcs/v1/authorize', methods=['POST'])
+def postAuthorize():
+    if not request.is_json:
+        return "Request body must be json", 400
+
+    return {
+        "success": "true"
+    }
+
 @app.route('/vcs/v1/site-details/<id>', methods=['DELETE'])
 def cleanupSiteDetails(id):
     return id
+
+@app.route('/vcs/v1/installation/user/<user_id>/org/<org_id>', methods=['GET'])
+def getInstallationDetails(user_id, org_id):
+    return {
+        "data": []
+    }
+
+@app.route('/vcs/v1/installation/auth', methods=['POST'])
+def postInstallationAuth():
+    if not request.is_json:
+        return "Request body must be json", 400
+
+    return {
+        "data": {
+            "github_app": "https://github.com/login/oauth/authorize?client_id=1234567890"
+        }
+    }
 
 if __name__ == '__main__':
    app.run(host='0.0.0.0', port=port)
