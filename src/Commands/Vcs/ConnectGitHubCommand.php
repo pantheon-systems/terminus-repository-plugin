@@ -1,6 +1,6 @@
 <?php
 
-namespace Pantheon\TerminusRepository\Commands\Github;
+namespace Pantheon\TerminusRepository\Commands\Vcs;
 
 use Pantheon\Terminus\Commands\TerminusCommand;
 use Pantheon\Terminus\Exceptions\TerminusException;
@@ -14,7 +14,7 @@ use Pantheon\TerminusRepository\Traits\GithubInstallTrait;
  *
  * @package Pantheon\TerminusRepository\Commands
  */
-class GithubInstallCommand extends TerminusCommand implements RequestAwareInterface
+class ConnectGitHubCommand extends TerminusCommand implements RequestAwareInterface
 {
     use VcsClientAwareTrait;
     use GithubInstallTrait;
@@ -36,8 +36,8 @@ class GithubInstallCommand extends TerminusCommand implements RequestAwareInterf
      *
      * @authorize
      *
-     * @command github:install
-     * @aliases github-install
+     * @command vcs:connect:github
+     * @aliases vcs-connect-github
      *
      * @param string $organization Organization name, label, or ID.
 
@@ -46,7 +46,7 @@ class GithubInstallCommand extends TerminusCommand implements RequestAwareInterf
      *
      * @usage <organization> Registers a GitHub App installation with the VCS API.
      */
-    public function githubInstall(string $organization)
+    public function connectGithub(string $organization)
     {
         $organization = $this->session()->getUser()->getOrganizationMemberships()->get(
             $organization
