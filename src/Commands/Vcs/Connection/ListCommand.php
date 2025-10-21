@@ -1,6 +1,6 @@
 <?php
 
-namespace Pantheon\TerminusRepository\Commands\Vcs;
+namespace Pantheon\TerminusRepository\Commands\Vcs\Connection;
 
 use Pantheon\Terminus\Commands\TerminusCommand;
 use Pantheon\Terminus\Exceptions\TerminusException;
@@ -11,11 +11,11 @@ use Pantheon\Terminus\Commands\StructuredListTrait;
 use Consolidation\OutputFormatters\StructuredData\RowsOfFields;
 
 /**
- * Class ConnectListCommand.
+ * Class ListCommand.
  *
- * @package Pantheon\TerminusRepository\Commands
+ * @package Pantheon\TerminusRepository\Commands\Vcs\Connection
  */
-class ConnectListCommand extends TerminusCommand implements RequestAwareInterface
+class ListCommand extends TerminusCommand implements RequestAwareInterface
 {
     use VcsClientAwareTrait;
     use StructuredListTrait;
@@ -25,8 +25,8 @@ class ConnectListCommand extends TerminusCommand implements RequestAwareInterfac
      *
      * @authorize
      *
-     * @command vcs:connect:list
-     * @aliases vcs-connect-list
+     * @command vcs:connection:list
+     * @aliases vcs-connection-list
      *
      * @field-labels
      *   id: Installation ID

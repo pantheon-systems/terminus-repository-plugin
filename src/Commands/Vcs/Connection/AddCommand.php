@@ -1,6 +1,6 @@
 <?php
 
-namespace Pantheon\TerminusRepository\Commands\Vcs;
+namespace Pantheon\TerminusRepository\Commands\Vcs\Connection;
 
 use Pantheon\Terminus\Commands\TerminusCommand;
 use Pantheon\Terminus\Exceptions\TerminusException;
@@ -10,11 +10,11 @@ use Symfony\Component\Process\Process;
 use Pantheon\TerminusRepository\Traits\GithubInstallTrait;
 
 /**
- * Class ConnectGitHubCommand.
+ * Class AddCommand.
  *
- * @package Pantheon\TerminusRepository\Commands
+ * @package Pantheon\TerminusRepository\Commands\Vcs\Connection
  */
-class ConnectGitHubCommand extends TerminusCommand implements RequestAwareInterface
+class AddCommand extends TerminusCommand implements RequestAwareInterface
 {
     use VcsClientAwareTrait;
     use GithubInstallTrait;
@@ -36,22 +36,33 @@ class ConnectGitHubCommand extends TerminusCommand implements RequestAwareInterf
      *
      * @authorize
      *
-     * @command vcs:connect:github
-     * @aliases vcs-connect-github
+     * @command vcs:connection:add
+     * @aliases vcs-connection-add
      *
      * @param string $organization Organization name, label, or ID.
-
+     * @option vcs-provider VCS provider for the site repository (e.g., github, pantheon). Default (and only) is github.
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      *
      * @usage <organization> Registers a GitHub App installation with the VCS API.
      */
-    public function connectGithub(string $organization)
+    public function connectionAdd(string $organization, array $options = [
+        'vcs-provider' => 'github',
+    ])
     {
+        $vcsProvider = $options['vcs-provider'] ?? 'github';
+        if ($vcsProvider !== 'github') {
+            throw new TerminusException('Unsupported VCS provider: {provider}. Only "github" is supported.', ['provider' => $vcsProvider]);
+        }
         $organization = $this->session()->getUser()->getOrganizationMemberships()->get(
             $organization
         )->getOrganization();
 
+        $this->connectGithub($organization, $options);
+    }
+
+    public function connectGithub($organization)
+    {
         list($url, $flag_file, $process) = $this->startTemporaryServer();
         // Store the process so we can stop it later.
         $this->serverProcess = $process;
