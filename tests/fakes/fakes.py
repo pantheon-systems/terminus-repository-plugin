@@ -112,11 +112,7 @@ def postInstallationAuth():
 def getRepositorySearch():
     repo_name = request.args.get('search', '')
     return {
-        "data": [
-            {
-                "name": repo_name,
-            },
-        ]
+        "data": []
     }
 
 if __name__ == '__main__':
