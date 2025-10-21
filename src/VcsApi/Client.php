@@ -422,6 +422,25 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Search for repositories.
+     */
+    public function searchRepositories(string $repo_name, string $org_uuid, string $installation_id): array
+    {
+        $request_options = [
+            'method' => 'GET',
+        ];
+
+        $path = sprintf(
+            'repository/search?search=%s&org_id=%s&installation_id=%s',
+            urlencode($repo_name),
+            $org_uuid,
+            $installation_id
+        );
+
+        return $this->requestApi($path, $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Performs the request to API path.
      *
      * @param string $path

@@ -418,6 +418,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->debug('Pantheon organization ID: {org_id}', ['org_id' => $org_id]);
 
         $repo_name = $options['repository-name'] ?? $site_name;
+        $create_repo = $options['create-repo'];
 
         // 0. Validate repo name.
         if (empty($repo_name)) {
@@ -582,8 +583,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 5. Validate repository exists (or not) depending on create-repo option.
-        // TODO: DEVX-5820.
-
+        $existing_repos = $vcs_client->searchRepositories($repo_name, $pantheon_org->id, $installation_id);
+        if ($create_repo && !empty($existing_repos['data'])) {
+            foreach ($existing_repos['data'] as $repo) {
+                if (strtolower($repo->name) === strtolower($repo_name)) {
+                    $this->log()->debug('Existing repository found: {repo}', ['repo' => print_r($repo, true)]);
+                    throw new TerminusException('Repository "{repo}" already exists in the selected VCS organization. Cannot create it. Please choose a different repository name.', ['repo' => $repo_name]);
+                }
+            }
+        }
+        if (!$create_repo && empty($existing_repos['data'])) {
+            throw new TerminusException('Repository "{repo}" does not exist in the selected VCS organization. Cannot link it. Please create the repository first.', ['repo' => $repo_name]);
+        }
 
         // 6. Create Site Record in Pantheon
         $this->log()->notice('Creating Pantheon site ...');
@@ -666,7 +677,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         // 9. Create Repository via go-vcs-service (repoCreate)
         $repo_action_done = "created";
         $repo_action_working = "creating";
-        $create_repo = $options['create-repo'];
         if ($create_repo) {
             $this->log()->notice("Creating repository '{repo}'...", ['repo' => $repo_name]);
         } else {
