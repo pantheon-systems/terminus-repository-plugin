@@ -584,15 +584,20 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         // 5. Validate repository exists (or not) depending on create-repo option.
         $existing_repos = $vcs_client->searchRepositories($repo_name, $pantheon_org->id, $installation_id);
-        if ($create_repo && !empty($existing_repos['data'])) {
+        $repo_exists = false;
+        if ($existing_repos['data']) {
             foreach ($existing_repos['data'] as $repo) {
                 if (strtolower($repo->name) === strtolower($repo_name)) {
-                    $this->log()->debug('Existing repository found: {repo}', ['repo' => print_r($repo, true)]);
-                    throw new TerminusException('Repository "{repo}" already exists in the selected VCS organization. Cannot create it. Please choose a different repository name.', ['repo' => $repo_name]);
+                    $repo_exists = true;
+                    break;
                 }
             }
         }
-        if (!$create_repo && empty($existing_repos['data'])) {
+        if ($create_repo && $repo_exists) {
+            $this->log()->debug('Existing repository found: {repo}', ['repo' => print_r($repo, true)]);
+            throw new TerminusException('Repository "{repo}" already exists in the selected VCS organization. Cannot create it. Please choose a different repository name.', ['repo' => $repo_name]);
+        }
+        if (!$create_repo && !$repo_exists) {
             throw new TerminusException('Repository "{repo}" does not exist in the selected VCS organization. Cannot link it. Please create the repository first.', ['repo' => $repo_name]);
         }
 
