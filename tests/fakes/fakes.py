@@ -108,5 +108,11 @@ def postInstallationAuth():
         }
     }
 
+@app.route('/vcs/v1/repository/search', methods=['GET'])
+def getRepositorySearch():
+    return {
+        "data": []
+    }
+
 if __name__ == '__main__':
    app.run(host='0.0.0.0', port=port)

@@ -16,7 +16,7 @@ while true; do
             LAST_VALUE="$VALUE"
             ((DIFFERENT_VALUES_COUNT++))
             # Perform GET request
-            curl -s -L "$VALUE"
+            curl -s -L "$VALUE" -o /dev/null
             # Exit if target reached
             if [[ "$DIFFERENT_VALUES_COUNT" -ge "$TARGET_COUNT" ]]; then
                 echo "Target of $TARGET_COUNT different values reached. Exiting."
