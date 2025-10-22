@@ -583,23 +583,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // 5. Validate repository exists (or not) depending on create-repo option.
-        $existing_repos = $vcs_client->searchRepositories($repo_name, $pantheon_org->id, $installation_id);
-        $repo_exists = false;
-        if ($existing_repos['data']) {
-            foreach ($existing_repos['data'] as $repo) {
-                if (strtolower($repo->name) === strtolower($repo_name)) {
-                    $repo_exists = true;
-                    break;
-                }
-            }
-        }
-        if ($create_repo && $repo_exists) {
-            $this->log()->debug('Existing repository found: {repo}', ['repo' => print_r($repo, true)]);
-            throw new TerminusException('Repository "{repo}" already exists in the selected VCS organization. Cannot create it. Please choose a different repository name.', ['repo' => $repo_name]);
-        }
-        if (!$create_repo && !$repo_exists) {
-            throw new TerminusException('Repository "{repo}" does not exist in the selected VCS organization. Cannot link it. Please create the repository first.', ['repo' => $repo_name]);
-        }
+        $this->validateRepositoryExistsOrNot($vcs_client, $repo_name, $pantheon_org->id, $installation_id, $create_repo);
 
         // 6. Create Site Record in Pantheon
         $this->log()->notice('Creating Pantheon site ...');
@@ -872,6 +856,38 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
         if ($clone_repo) {
             $this->log()->notice('Code repository cloned successfully to the current directory.');
+        }
+    }
+
+    /**
+     * Validates repository existence based on create_repo flag.
+     */
+    private function validateRepositoryExistsOrNot($vcs_client, $repo_name, $org_id, $installation_id, $create_repo)
+    {
+        $existing_repos = $vcs_client->searchRepositories($repo_name, $org_id, $installation_id);
+        $repo_exists = false;
+        if ($existing_repos['data']) {
+            foreach ($existing_repos['data'] as $repo) {
+                if (strtolower($repo->name) === strtolower($repo_name)) {
+                    $repo_exists = true;
+                    break;
+                }
+            }
+        }
+
+        // If we are creating the repo, it must not exist.
+        if ($create_repo && $repo_exists) {
+            throw new TerminusException(
+                'Repository "{repo}" already exists in the selected VCS organization. Cannot create it. Please choose a different repository name.',
+                ['repo' => $repo_name]
+            );
+        }
+        // If we are linking to an existing repo, it must exist.
+        if (!$create_repo && !$repo_exists) {
+            throw new TerminusException(
+                'Repository "{repo}" does not exist in the selected VCS organization. Cannot link it. Please create the repository first.',
+                ['repo' => $repo_name]
+            );
         }
     }
 
