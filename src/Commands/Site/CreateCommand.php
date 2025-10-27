@@ -424,6 +424,9 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if (empty($repo_name)) {
             throw new TerminusException('Repository name cannot be empty.');
         }
+        if (strlen($repo_name) > 100) {
+            throw new TerminusException('Repository name "{name}" is too long. Maximum length is 100 characters.', ['name' => $repo_name]);
+        }
         if (preg_match('/[^a-zA-Z0-9\-_]/', $repo_name)) {
             throw new TerminusException('Repository name "{name}" contains invalid characters. Only alphanumeric, hyphen, and underscore are allowed.', ['name' => $repo_name]);
         }

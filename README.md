@@ -38,6 +38,7 @@ Some other options available:
 - `visibility`: whether to make the repo "public" or "private" (default: private).
 - `region`: Pantheon region for your site.
 - `vcs-org`: If you've already set up a Pantheon site and want to create another one with the same Github organization, you can specify that organization using this option.
+- `repository-name`: Custom name for the repository (defaults to site name) - Note: Repository names must be less than 100 characters. Only alphanumeric characters, hyphens, and underscores are allowed.
 
 Once you run this command, the site creation process will start. You will be prompted to install the GitHub Application to be able to manage your external repository.
 Follow through the steps in the provided GitHub link and once you do that, the site creation process will continue and will eventually create a repository (named after your site name) in the provided GitHub account.
