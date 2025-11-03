@@ -430,7 +430,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if (preg_match('/[^a-zA-Z0-9\-_]/', $repo_name)) {
             throw new TerminusException('Repository name "{name}" contains invalid characters. Only alphanumeric, hyphen, and underscore are allowed.', ['name' => $repo_name]);
         }
-        if (preg_match('/^[\-_]+$/', $repo_name)) {
+        if (!preg_match('/[a-zA-Z0-9]/', $repo_name)) {
             throw new TerminusException('Repository name "{name}" must contain at least one alphanumeric character.', ['name' => $repo_name]);
         }
         $this->log()->debug('Repository name: {repo_name}', ['repo_name' => $repo_name]);
