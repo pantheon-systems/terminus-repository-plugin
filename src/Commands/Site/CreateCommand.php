@@ -427,8 +427,17 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if (strlen($repo_name) > 100) {
             throw new TerminusException('Repository name "{name}" is too long. Maximum length is 100 characters.', ['name' => $repo_name]);
         }
-        if (preg_match('/[^a-zA-Z0-9\-_]/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" contains invalid characters. Only alphanumeric, hyphen, and underscore are allowed.', ['name' => $repo_name]);
+        if (preg_match('/[^a-zA-Z0-9\-]/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" contains invalid characters. Only alphanumeric and dashes are allowed.', ['name' => $repo_name]);
+        }
+        if (!preg_match('/[a-zA-Z0-9]/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" must contain at least one alphanumeric character.', ['name' => $repo_name]);
+        }
+        if (preg_match('/^-/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" cannot begin with a dash.', ['name' => $repo_name]);
+        }
+        if (preg_match('/-$/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" cannot end with a dash.', ['name' => $repo_name]);
         }
         $this->log()->debug('Repository name: {repo_name}', ['repo_name' => $repo_name]);
 
