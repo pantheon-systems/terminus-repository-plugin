@@ -1,0 +1,31 @@
+---
+engines:
+  phpmd:
+    enabled: true
+    exclude_paths:
+      - 'vendor/**'
+    rules:
+      StaticAccess:
+        enabled: false
+      TooManyMethods:
+        enabled: false
+      TooManyPublicMethods:
+        enabled: false
+  phpcs:
+    enabled: true
+    exclude_paths:
+      - 'vendor/**'
+    rules:
+      PSR1.Methods.CamelCapsMethodName.NotCamelCaps:
+        enabled: false
+      Squiz.Commenting.FunctionComment.MissingReturn:
+        enabled: false
+      Squiz.Commenting.VariableComment.Missing:
+        enabled: false
+      Squiz.WhiteSpace.MemberVarSpacing.FirstIncorrect:
+        enabled: false
+      Squiz.WhiteSpace.MemberVarSpacing.Incorrect:
+        enabled: false
+exclude_paths:
+  - 'vendor/**'
+  - 'tests/**'
