@@ -5,225 +5,81 @@ namespace Pantheon\TerminusRepository\Tests\Unit;
 use PHPUnit\Framework\TestCase;
 use Pantheon\TerminusRepository\Commands\Site\CreateCommand;
 use Pantheon\Terminus\Exceptions\TerminusException;
-use Mockery;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
-use Pantheon\Terminus\Collections\Sites;
-use Pantheon\Terminus\Models\User;
-use Consolidation\Config\ConfigInterface;
-use Pantheon\TerminusRepository\VcsApi\Client;
+use ReflectionClass;
 
+/**
+ * Test repository name validation in CreateCommand.
+ */
 class CreateCommandTest extends TestCase
 {
-    protected $command;
-    protected $logger;
-    protected $input;
-    protected $output;
-    protected $sites;
-    protected $user;
-    protected $config;
-    protected $vcsClient;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->logger = Mockery::mock(LoggerInterface::class);
-        $this->logger->shouldReceive('debug')->andReturn(null);
-        $this->logger->shouldReceive('notice')->andReturn(null);
-        $this->logger->shouldReceive('warning')->andReturn(null);
-
-        $this->input = Mockery::mock(InputInterface::class);
-        $this->output = Mockery::mock(OutputInterface::class);
-        $this->sites = Mockery::mock(Sites::class);
-        $this->user = Mockery::mock(User::class);
-        $this->config = Mockery::mock(ConfigInterface::class);
-        $this->vcsClient = Mockery::mock(Client::class);
-
-        $this->command = Mockery::mock(CreateCommand::class)->makePartial();
-        $this->command->setLogger($this->logger);
-        $this->command->setInput($this->input);
-        $this->command->setOutput($this->output);
-    }
-
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
-
     /**
-     * Test that empty repository names are rejected.
+     * @dataProvider invalidRepositoryNameProvider
      */
-    public function testValidateRepositoryNameEmpty()
+    public function testInvalidRepositoryNames(string $repoName, string $expectedMessage): void
     {
         $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage('Repository name cannot be empty');
+        $this->expectExceptionMessage($expectedMessage);
 
-        $this->invokeValidation('');
+        $this->invokeValidateMethod($repoName);
     }
 
     /**
-     * Test that repository names over 100 characters are rejected.
+     * @dataProvider validRepositoryNameProvider
      */
-    public function testValidateRepositoryNameTooLong()
+    public function testValidRepositoryNames(string $repoName): void
     {
-        $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage('is too long. Maximum length is 100 characters');
-
-        $longName = str_repeat('a', 101);
-        $this->invokeValidation($longName);
+        $this->invokeValidateMethod($repoName);
+        $this->assertTrue(true);
     }
 
     /**
-     * Test that repository names with 100 characters are accepted.
+     * Data provider for invalid repository names.
+     *
+     * @return array<string, array<int, string>>
      */
-    public function testValidateRepositoryNameExactly100Characters()
+    public function invalidRepositoryNameProvider(): array
     {
-        $exactName = str_repeat('a', 100);
-        $result = $this->invokeValidation($exactName);
-        $this->assertTrue($result);
+        return [
+            'empty name' => ['', 'Repository name cannot be empty'],
+            'too long (101 chars)' => [str_repeat('a', 101), 'is too long. Maximum length is 100 characters'],
+            'with underscore' => ['my_repo_name', 'contains invalid characters'],
+            'with special characters' => ['my-repo!name', 'contains invalid characters'],
+            'with spaces' => ['my repo name', 'contains invalid characters'],
+            'only dashes' => ['---', 'must contain at least one alphanumeric character'],
+            'starts with dash' => ['-my-repo', 'cannot begin with a dash'],
+            'ends with dash' => ['my-repo-', 'cannot end with a dash'],
+        ];
     }
 
     /**
-     * Test that repository names with underscores are rejected.
+     * Data provider for valid repository names.
+     *
+     * @return array<string, array<int, string>>
      */
-    public function testValidateRepositoryNameWithUnderscore()
+    public function validRepositoryNameProvider(): array
     {
-        $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage('contains invalid characters. Only alphanumeric and dashes are allowed');
-
-        $this->invokeValidation('my_repo_name');
+        return [
+            'alphanumeric' => ['myrepo123'],
+            'with dashes' => ['my-repo-name'],
+            'mixed case' => ['MyRepoName'],
+            'starts with number' => ['123-repo'],
+            'ends with number' => ['repo-123'],
+            'exactly 100 chars' => [str_repeat('a', 100)],
+        ];
     }
 
     /**
-     * Test that repository names with special characters are rejected.
+     * Invoke the protected validateRepositoryName method using reflection.
+     *
+     * @param string $repoName Repository name to validate
+     * @throws TerminusException if validation fails
      */
-    public function testValidateRepositoryNameWithSpecialCharacters()
+    private function invokeValidateMethod(string $repoName): void
     {
-        $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage('contains invalid characters. Only alphanumeric and dashes are allowed');
-
-        $this->invokeValidation('my-repo!name');
-    }
-
-    /**
-     * Test that repository names with spaces are rejected.
-     */
-    public function testValidateRepositoryNameWithSpaces()
-    {
-        $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage('contains invalid characters. Only alphanumeric and dashes are allowed');
-
-        $this->invokeValidation('my repo name');
-    }
-
-    /**
-     * Test that repository names with only dashes are rejected.
-     */
-    public function testValidateRepositoryNameOnlyDashes()
-    {
-        $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage('must contain at least one alphanumeric character');
-
-        $this->invokeValidation('---');
-    }
-
-    /**
-     * Test that repository names beginning with a dash are rejected.
-     */
-    public function testValidateRepositoryNameStartsWithDash()
-    {
-        $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage('cannot begin with a dash');
-
-        $this->invokeValidation('-my-repo');
-    }
-
-    /**
-     * Test that repository names ending with a dash are rejected.
-     */
-    public function testValidateRepositoryNameEndsWithDash()
-    {
-        $this->expectException(TerminusException::class);
-        $this->expectExceptionMessage('cannot end with a dash');
-
-        $this->invokeValidation('my-repo-');
-    }
-
-    /**
-     * Test valid repository names with alphanumeric characters.
-     */
-    public function testValidateRepositoryNameAlphanumeric()
-    {
-        $result = $this->invokeValidation('myrepo123');
-        $this->assertTrue($result);
-    }
-
-    /**
-     * Test valid repository names with dashes.
-     */
-    public function testValidateRepositoryNameWithDashes()
-    {
-        $result = $this->invokeValidation('my-repo-name');
-        $this->assertTrue($result);
-    }
-
-    /**
-     * Test valid repository names with mixed case.
-     */
-    public function testValidateRepositoryNameMixedCase()
-    {
-        $result = $this->invokeValidation('MyRepoName');
-        $this->assertTrue($result);
-    }
-
-    /**
-     * Test valid repository names starting with a number.
-     */
-    public function testValidateRepositoryNameStartsWithNumber()
-    {
-        $result = $this->invokeValidation('123-repo');
-        $this->assertTrue($result);
-    }
-
-    /**
-     * Test valid repository names ending with a number.
-     */
-    public function testValidateRepositoryNameEndsWithNumber()
-    {
-        $result = $this->invokeValidation('repo-123');
-        $this->assertTrue($result);
-    }
-
-    /**
-     * Helper method to invoke the validation logic.
-     * Since the validation is embedded in createWithExternalVcs, we'll create a
-     * helper method in the test to replicate the validation logic for testing purposes.
-     */
-    protected function invokeValidation(string $repo_name): bool
-    {
-        // Replicate the validation logic from CreateCommand.php lines 424-441
-        if (empty($repo_name)) {
-            throw new TerminusException('Repository name cannot be empty.');
-        }
-        if (strlen($repo_name) > 100) {
-            throw new TerminusException('Repository name "{name}" is too long. Maximum length is 100 characters.', ['name' => $repo_name]);
-        }
-        if (preg_match('/[^a-zA-Z0-9\-]/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" contains invalid characters. Only alphanumeric and dashes are allowed.', ['name' => $repo_name]);
-        }
-        if (!preg_match('/[a-zA-Z0-9]/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" must contain at least one alphanumeric character.', ['name' => $repo_name]);
-        }
-        if (preg_match('/^-/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" cannot begin with a dash.', ['name' => $repo_name]);
-        }
-        if (preg_match('/-$/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" cannot end with a dash.', ['name' => $repo_name]);
-        }
-
-        return true;
+        $command = new CreateCommand();
+        $reflection = new ReflectionClass($command);
+        $method = $reflection->getMethod('validateRepositoryName');
+        $method->setAccessible(true);
+        $method->invoke($command, $repoName);
     }
 }
