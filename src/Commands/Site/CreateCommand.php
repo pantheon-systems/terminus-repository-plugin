@@ -421,24 +421,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $create_repo = $options['create-repo'];
 
         // 0. Validate repo name.
-        if (empty($repo_name)) {
-            throw new TerminusException('Repository name cannot be empty.');
-        }
-        if (strlen($repo_name) > 100) {
-            throw new TerminusException('Repository name "{name}" is too long. Maximum length is 100 characters.', ['name' => $repo_name]);
-        }
-        if (preg_match('/[^a-zA-Z0-9\-]/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" contains invalid characters. Only alphanumeric and dashes are allowed.', ['name' => $repo_name]);
-        }
-        if (!preg_match('/[a-zA-Z0-9]/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" must contain at least one alphanumeric character.', ['name' => $repo_name]);
-        }
-        if (preg_match('/^-/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" cannot begin with a dash.', ['name' => $repo_name]);
-        }
-        if (preg_match('/-$/', $repo_name)) {
-            throw new TerminusException('Repository name "{name}" cannot end with a dash.', ['name' => $repo_name]);
-        }
+        $this->validateRepositoryName($repo_name);
         $this->log()->debug('Repository name: {repo_name}', ['repo_name' => $repo_name]);
 
 
@@ -1171,5 +1154,33 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         return true;
+    }
+
+    /**
+     * Validates repository name according to GitHub naming rules.
+     *
+     * @param string $repo_name Repository name to validate
+     * @throws TerminusException if validation fails
+     */
+    protected function validateRepositoryName(string $repo_name): void
+    {
+        if (empty($repo_name)) {
+            throw new TerminusException('Repository name cannot be empty.');
+        }
+        if (strlen($repo_name) > 100) {
+            throw new TerminusException('Repository name "{name}" is too long. Maximum length is 100 characters.', ['name' => $repo_name]);
+        }
+        if (preg_match('/[^a-zA-Z0-9\-]/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" contains invalid characters. Only alphanumeric and dashes are allowed.', ['name' => $repo_name]);
+        }
+        if (!preg_match('/[a-zA-Z0-9]/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" must contain at least one alphanumeric character.', ['name' => $repo_name]);
+        }
+        if (preg_match('/^-/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" cannot begin with a dash.', ['name' => $repo_name]);
+        }
+        if (preg_match('/-$/', $repo_name)) {
+            throw new TerminusException('Repository name "{name}" cannot end with a dash.', ['name' => $repo_name]);
+        }
     }
 }
