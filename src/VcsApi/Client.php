@@ -179,10 +179,9 @@ class Client implements ConfigAwareInterface
             try {
                 $data = $this->getHealthcheck($site_id);
             } catch (TerminusException $e) {
-                // If we get an error, just continue and retry.
-                continue;
+                // If we get an error, just keep trying until timeout.
+                $data = [];
             }
-            $data = (array) $data;
 
             $current = time();
             $elapsed = $current - $start;
@@ -194,6 +193,11 @@ class Client implements ConfigAwareInterface
                         'timeout' => $timeout,
                     ]
                 );
+            }
+
+            // If data is empty, it probably errored out, so continue.
+            if (empty($data)) {
+                continue;
             }
 
             if ($data['status'] != "SUCCESS") {
