@@ -33,9 +33,11 @@ class LinkCommand extends TerminusCommand implements RequestAwareInterface
      * @aliases vcs-connection-link
      *
      * @param string $destination_org Destination Pantheon organization name, label, or ID (where the VCS connection will be linked).
+     * @param array $options Command options including 'vcs-org' and 'source-org'.
      * @option vcs-org VCS organization name (e.g., GitHub organization name). If not provided, you'll be prompted to select from available VCS organizations.
      * @option source-org Source Pantheon organization name, label, or ID that already has the VCS connection. If not provided and multiple organizations have the same VCS connection, you'll be prompted to select one.
      *
+     * @return void
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      *
      * @usage <destination-org> --vcs-org=<vcs-org> --source-org=<source-org>
@@ -123,10 +125,10 @@ class LinkCommand extends TerminusCommand implements RequestAwareInterface
     /**
      * Determines source organization and VCS organization based on provided options.
      *
-     * @param \Pantheon\Terminus\Models\User $user
-     * @param string|null $vcs_org
-     * @param string|null $source_org
-     * @param \Pantheon\Terminus\Models\Organization $destination_org
+     * @param \Pantheon\Terminus\Models\User $user Current authenticated user
+     * @param string|null $vcs_org VCS organization name to search for
+     * @param string|null $source_org Source Pantheon organization name/ID
+     * @param \Pantheon\Terminus\Models\Organization $destination_org Destination organization object
      * @return array [$source_organization, $vcs_installation]
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
@@ -185,9 +187,9 @@ class LinkCommand extends TerminusCommand implements RequestAwareInterface
     /**
      * Finds a specific VCS organization in a Pantheon organization.
      *
-     * @param \Pantheon\Terminus\Models\User $user
-     * @param \Pantheon\Terminus\Models\Organization $pantheon_org
-     * @param string $vcs_org_name
+     * @param \Pantheon\Terminus\Models\User $user Current authenticated user
+     * @param \Pantheon\Terminus\Models\Organization $pantheon_org Pantheon organization to search in
+     * @param string $vcs_org_name Name of the VCS organization to find
      * @return object|null The VCS installation object or null if not found
      */
     protected function findVcsOrgInPantheonOrg($user, $pantheon_org, $vcs_org_name)
