@@ -9,4 +9,12 @@
             <property name="absoluteLineLimit" value="250"/>
         </properties>
     </rule>
+
+    <!-- Disable overly strict PHPDoc spacing alignment rules -->
+    <rule ref="Squiz.Commenting.FunctionComment.SpacingAfterParamType">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FunctionComment.SpacingAfterParamName">
+        <severity>0</severity>
+    </rule>
 </ruleset>
