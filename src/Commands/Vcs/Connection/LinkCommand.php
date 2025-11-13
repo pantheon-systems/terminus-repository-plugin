@@ -85,7 +85,6 @@ class LinkCommand extends TerminusCommand implements RequestAwareInterface
 
         // Call the API to link the VCS organization
         $this->linkVcsOrganization(
-            $user->id,
             $source_pantheon_org->id,
             $destination_pantheon_org->id,
             $vcs_installation->installation_id
@@ -402,21 +401,18 @@ class LinkCommand extends TerminusCommand implements RequestAwareInterface
     /**
      * Calls the API to link a VCS organization to a destination Pantheon organization.
      *
-     * @param string $user_id User UUID
      * @param string $source_org_id Source Pantheon organization UUID
      * @param string $destination_org_id Destination Pantheon organization UUID
      * @param string $installation_id VCS installation ID
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      */
     protected function linkVcsOrganization(
-        string $user_id,
         string $source_org_id,
         string $destination_org_id,
         string $installation_id
     ) {
         try {
             $result = $this->getVcsClient()->linkInstallation(
-                $user_id,
                 $source_org_id,
                 $destination_org_id,
                 $installation_id
