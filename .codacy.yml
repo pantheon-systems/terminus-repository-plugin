@@ -26,6 +26,11 @@ engines:
         enabled: false
       Squiz.WhiteSpace.MemberVarSpacing.Incorrect:
         enabled: false
+      # Disable WordPress-specific escaping rules for CLI application
+      WordPress.Security.EscapeOutput.OutputNotEscaped:
+        enabled: false
+      WordPress.XSS.EscapeOutput.OutputNotEscaped:
+        enabled: false
 exclude_paths:
   - 'vendor/**'
   - 'tests/**'
