@@ -408,6 +408,35 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Link an existing VCS installation to a new Pantheon organization.
+     *
+     * @param string $source_org_id Source Pantheon organization UUID
+     * @param string $destination_org_id Destination Pantheon organization UUID
+     * @param string $installation_id VCS installation ID
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function linkInstallation(
+        string $source_org_id,
+        string $destination_org_id,
+        string $installation_id
+    ): array {
+        $request_options = [
+            'json' => [
+                'organization_id' => $source_org_id,
+                'installation_id' => $installation_id,
+            ],
+            'method' => 'POST',
+        ];
+
+        $path = sprintf('authorize/organization/%s', $destination_org_id);
+
+        return $this->requestApi($path, $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Get auth links.
      */
     public function getAuthLinks(string $org_uuid, string $user_uuid, string $site_type, string $callback_url): array
