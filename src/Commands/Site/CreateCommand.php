@@ -1008,6 +1008,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 return $user->getUpstreams()->get('wordpress-icr');
             case 'wordpress_network':
                 return $user->getUpstreams()->get('wordpress-multisite-icr');
+            case 'nodejs':
+                return $user->getUpstreams()->get('nodejs-evcs');
             default:
                 throw new TerminusException('Framework {framework} not supported.', compact('framework'));
         }
