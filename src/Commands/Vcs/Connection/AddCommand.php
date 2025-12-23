@@ -58,6 +58,8 @@ class AddCommand extends TerminusCommand implements RequestAwareInterface
             $organization
         )->getOrganization();
 
+        $this->log()->warning("Keep in mind that any member of the selected Pantheon Workspace will be able to list and create repositories in the selected VCS organization.");
+
         $this->connectGithub($organization, $options);
     }
 
