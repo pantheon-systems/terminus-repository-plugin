@@ -1085,6 +1085,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
      */
     protected function handleNewInstallation(string $vcs_provider, string $auth_url, string $flag_file, array $options): bool
     {
+        $this->log()->warning("Keep in mind that any member of the selected Pantheon Workspace will be able to list and create repositories in the selected VCS organization.");
         switch ($vcs_provider) {
             case 'github':
                 return $this->handleGithubNewInstallation($auth_url, $flag_file, self::AUTH_LINK_TIMEOUT);
