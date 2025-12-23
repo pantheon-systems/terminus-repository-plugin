@@ -555,6 +555,6 @@ class Client implements ConfigAwareInterface
             return $config->get('host');
         }
 
-        return 'api.pantheon.io';
+        return 'terminus.pantheon.io';
     }
 }
