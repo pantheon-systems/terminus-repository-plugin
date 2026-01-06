@@ -834,7 +834,12 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 $this->getVcsClient()->buildRepo($site_uuid);
             } catch (TerminusException $e) {
                 // If build fails (e.g., empty repo), clean up the site and rethrow
-                $this->cleanupPantheonSite($site_uuid, $e->getMessage(), true);
+                try {
+                    $this->cleanupPantheonSite($site_uuid, $e->getMessage(), true);
+                } catch (\Throwable $cleanup_error) {
+                    // Log cleanup failure but don't let it override the original error
+                    $this->log()->warning('Cleanup failed: {error}', ['error' => $cleanup_error->getMessage()]);
+                }
                 throw $e;
             }
         }
