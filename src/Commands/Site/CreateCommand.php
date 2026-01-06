@@ -830,7 +830,18 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             }
         } else {
             $this->log()->notice('Requesting initial code delivery...');
-            $this->getVcsClient()->buildRepo($site_uuid);
+            try {
+                $this->getVcsClient()->buildRepo($site_uuid);
+            } catch (TerminusException $e) {
+                // If build fails (e.g., empty repo), clean up the site and rethrow
+                try {
+                    $this->cleanupPantheonSite($site_uuid, $e->getMessage(), true);
+                } catch (\Throwable $cleanup_error) {
+                    // Log cleanup failure but don't let it override the original error
+                    $this->log()->warning('Cleanup failed: {error}', ['error' => $cleanup_error->getMessage()]);
+                }
+                throw $e;
+            }
         }
         // Wait for the dev environment to be ready.
         try {
@@ -1066,8 +1077,13 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 if ($cleanup_vcs) {
                     // Call VCS service cleanup if needed
                     $this->log()->notice('Cleaning up VCS records in Pantheon...');
-                    $this->getVcsClient()->cleanupSiteDetails($site_uuid);
-                    $this->log()->notice('VCS records cleanup successful. You may need to manually delete the repository if it was created.');
+                    try {
+                        $this->getVcsClient()->cleanupSiteDetails($site_uuid);
+                        $this->log()->notice('VCS records cleanup successful. You may need to manually delete the repository if it was created.');
+                    } catch (\Throwable $vcs_error) {
+                        // VCS cleanup is best-effort; don't fail if it doesn't work
+                        $this->log()->warning('VCS records cleanup failed: {error}. This is non-critical.', ['error' => $vcs_error->getMessage()]);
+                    }
                 }
             } else {
                  $this->log()->warning('Could not find site {id} to clean up (already deleted?).', ['id' => $site_uuid]);
