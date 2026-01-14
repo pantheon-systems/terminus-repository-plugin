@@ -633,7 +633,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
 
         // Get site UUID from workflow
-        $site_uuid = $workflow->get('waiting_for_task')->site_id ?? null;
+        $site_uuid = $workflow->get('waiting_for_task')->params->site_id ?? null;
         if (!$site_uuid) {
             throw new TerminusException('Could not get site ID from site creation workflow.');
         }
