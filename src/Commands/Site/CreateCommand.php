@@ -724,38 +724,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
     }
 
     /**
-     * Pauses execution to allow user to ensure repo access.
-     */
-    private function pauseForGithubRepoAccess(string $installation_human_name, int $timeout)
-    {
-        $installation_link = sprintf(
-            'https://github.com/%s',
-            $installation_human_name,
-        );
-        $this->log()->notice(
-            "If you have not already done so, please ensure that the application has access to the repository by visiting your GitHub account: {url}, " .
-            "then Settings -> Applications. Select the current application and ensure it has access to the repository you wish to use.",
-            ['url' => $installation_link]
-        );
-        $this->log()->notice(
-            "Pausing for up to {$timeout} seconds to allow time for you to complete this step if needed. Press enter to continue..."
-        );
-
-        $answered = false;
-        $stream = STDIN;
-        $read = [$stream];
-        $write = null;
-        $except = null;
-
-        if (stream_select($read, $write, $except, $timeout)) {
-            $answered = true;
-        }
-        if (!$answered) {
-            $this->log()->notice("Continuing after {$timeout} seconds...");
-        }
-    }
-
-    /**
      * Clone the repository using the converted SSH URL.
      */
     private function cloneRepo($repo_url)
@@ -819,53 +787,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
     }
 
-    /**
-     * Get ICR upstream based on the upstream passed as argument.
-     */
-    protected function getIcrUpstream(string $original_upstream_id, User $user): Upstream
-    {
-        $original_upstream = $user->getUpstreams()->get($original_upstream_id);
-        if ($original_upstream->get('type') === 'icr') {
-            // If the original upstream is already an ICR upstream, return it directly.
-            return $original_upstream;
-        }
-        $framework = $original_upstream->get('framework');
-        return $this->getIcrUpstreamFromFramework($framework, $user);
-    }
 
-    /**
-     * Get ICR upstream based on the framework.
-     */
-    protected function getIcrUpstreamFromFramework(string $framework, $user): Upstream
-    {
-        switch ($framework) {
-            case 'drupal8':
-                return $user->getUpstreams()->get('drupal-icr');
-            case 'wordpress':
-                return $user->getUpstreams()->get('wordpress-icr');
-            case 'wordpress_network':
-                return $user->getUpstreams()->get('wordpress-multisite-icr');
-            case 'nodejs':
-                return $user->getUpstreams()->get('nodejs');
-            default:
-                throw new TerminusException('Framework {framework} not supported.', compact('framework'));
-        }
-    }
-
-    /**
-     * Get upstream repository URL and branch.
-     */
-    protected function getUpstreamInformation(string $upstream_id, User $user): array
-    {
-        $upstream = $user->getUpstreams()->get($upstream_id);
-        $repo_url = $upstream->get('repository_url');
-        $repo_branch = $upstream->get('repository_branch');
-
-        if (empty($repo_url) || empty($repo_branch)) {
-             throw new TerminusException('Could not retrieve repository URL or branch for upstream "{id}".', ['id' => $upstream_id]);
-        }
-        return [$repo_url, $repo_branch];
-    }
 
     /**
      * Get preferred platform based on framework/site_type.
@@ -879,48 +801,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
         // Default to 'cos' for cms-drupal, cms-wordpress etc.
         return 'cos';
-    }
-
-    /**
-     * Cleans up the Pantheon site record if creation fails mid-process.
-     * Adapted from RepositorySiteCreateCommand::cleanup
-     */
-    protected function cleanupPantheonSite(string $site_uuid, string $failure_reason, bool $cleanup_vcs = true): void
-    {
-        $this->log()->error('Site creation failed: {reason}', ['reason' => $failure_reason]);
-        $this->log()->notice("Attempting to clean up Pantheon site (ID: {id})...", ['id' => $site_uuid]);
-
-        try {
-            $site = $this->sites()->get($site_uuid);
-            if ($site) {
-                $workflow = $site->delete();
-                // Watch the workflow using the user object since the site object will be gone
-                $workflow->setOwnerObject($this->session()->getUser());
-                $this->processWorkflow($workflow);
-                $message = $workflow->getMessage();
-                $this->log()->notice('Pantheon site cleanup successful: {msg}', ['msg' => $message]);
-
-                if ($cleanup_vcs) {
-                    // Call VCS service cleanup if needed
-                    $this->log()->notice('Cleaning up VCS records in Pantheon...');
-                    try {
-                        $this->getVcsClient()->cleanupSiteDetails($site_uuid);
-                        $this->log()->notice('VCS records cleanup successful. You may need to manually delete the repository if it was created.');
-                    } catch (\Throwable $vcs_error) {
-                        // VCS cleanup is best-effort; don't fail if it doesn't work
-                        $this->log()->warning('VCS records cleanup failed: {error}. This is non-critical.', ['error' => $vcs_error->getMessage()]);
-                    }
-                }
-            } else {
-                 $this->log()->warning('Could not find site {id} to clean up (already deleted?).', ['id' => $site_uuid]);
-            }
-        } catch (TerminusNotFoundException $e) {
-             $this->log()->warning('Could not find site {id} to clean up (already deleted?).', ['id' => $site_uuid]);
-        } catch (\Throwable $t) {
-            // Catch potential errors during deletion workflow processing
-            $this->log()->error("Error during Pantheon site cleanup: {error_message}", ['error_message' => $t->getMessage()]);
-            throw new TerminusException('Error during Pantheon site cleanup: {error_message}', ['error_message' => $t->getMessage()]);
-        }
     }
 
     /**
