@@ -37,6 +37,44 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Create site workflow.
+     *
+     * @param array $workflow_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function createWorkflow(array $workflow_data): array
+    {
+        $request_options = [
+            'json' => $workflow_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('workflow', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
+     * Call authorize endpoint.
+     *
+     * @param array $authorize_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function authorize(array $authorize_data): array
+    {
+        $request_options = [
+            'json' => $authorize_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('authorize', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
      * Call installwithtoken endpoint.
      *
      * @param array $data
@@ -55,6 +93,64 @@ class Client implements ConfigAwareInterface
         return $this->requestApi('installwithtoken', $request_options, "X-Pantheon-Session");
     }
 
+    /**
+     * Install webhook.
+     *
+     * @param array $webhook_install_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function installWebhook(array $webhook_install_data): array
+    {
+        $request_options = [
+            'json' => $webhook_install_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('webhook', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
+     * Create repo.
+     *
+     * @param array $repo_create_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function repoCreate(array $repo_create_data): array
+    {
+        $request_options = [
+            'json' => $repo_create_data,
+            'method' => 'POST',
+        ];
+
+        return $this->requestApi('repository', $request_options, "X-Pantheon-Session");
+    }
+
+    /**
+     * Initialize repo.
+     *
+     * @param array $repo_initialize_data
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function repoInitialize(array $repo_initialize_data): array
+    {
+        $request_options = [
+            'json' => $repo_initialize_data,
+            'method' => 'POST',
+            'timeout' => 240,
+            'read_timeout' => 240,
+        ];
+
+        return $this->requestApi('repo-initialize', $request_options, "X-Pantheon-Session");
+    }
 
 
 
