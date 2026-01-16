@@ -509,6 +509,10 @@ class Client implements ConfigAwareInterface
             // If error was correctly set from backend, throw it.
             throw new TerminusException($data->error);
         }
+        // Check for nested error format: {"errors":{"error":"message"}}
+        if (!empty($data->errors->error)) {
+            throw new TerminusException($data->errors->error);
+        }
         throw new TerminusException(
             'An error ocurred. Code: {code}. Message: {reason}',
             [
