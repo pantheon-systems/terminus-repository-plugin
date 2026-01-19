@@ -661,7 +661,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         // Create the workflow
         try {
-            $workflow = $user->getWorkflows()->create('create_node_js_sta_site', [
+            $workflow = $user->getWorkflows()->create('create_site', [
                 'params' => $workflow_params,
             ]);
             $this->log()->notice('Site creation workflow initiated (ID: {id}).', ['id' => $workflow->id]);
