@@ -578,40 +578,20 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         // 5. Validate repository exists (or not) depending on create-repo option.
         $this->validateRepositoryExistsOrNot($vcs_client, $repo_name, $pantheon_org->id, $installation_id, $create_repo);
 
-        // 6. Branch based on platform: workflow for Node.js/STA, orchestration for Drupal/WordPress/COS
-        if ($preferred_platform === 'sta') {
-            // Use workflow for Next.js sites
-            $this->createExternallyHostedSiteViaWorkflow(
-                $site_name,
-                $label,
-                $upstream,
-                $user,
-                $options,
-                $pantheon_org,
-                $installation_id,
-                $repo_name,
-                $create_repo,
-                $vcs_provider,
-                $preferred_platform
-            );
-        } else {
-            // Use orchestration for Drupal/WordPress eVCS sites
-            $this->createExternallyHostedSiteViaOrchestration(
-                $site_name,
-                $label,
-                $upstream,
-                $user,
-                $options,
-                $pantheon_org,
-                $installation_id,
-                $repo_name,
-                $create_repo,
-                $vcs_provider,
-                $preferred_platform,
-                $existing_installation,
-                $installation_human_name ?? ''
-            );
-        }
+        // 6. Use workflow for all sites
+        $this->createExternallyHostedSiteViaWorkflow(
+            $site_name,
+            $label,
+            $upstream,
+            $user,
+            $options,
+            $pantheon_org,
+            $installation_id,
+            $repo_name,
+            $create_repo,
+            $vcs_provider,
+            $preferred_platform
+        );
     }
 
     /**

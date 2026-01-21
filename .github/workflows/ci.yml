@@ -90,7 +90,7 @@ jobs:
       - name: Run functional tests
         env:
           ORG_ID: ${{ secrets.ORG_ID }}
-          TESTING_MODE: 1
+          VCS_ORG: ${{ secrets.VCS_ORG }}
         run: chmod +x ./tests/functional.sh && ./tests/functional.sh
       - name: Cleanup
         if: success()
