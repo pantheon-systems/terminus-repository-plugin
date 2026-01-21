@@ -635,7 +635,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
         $region = $options['region'] ?? $this->config->get('command_site_options_region');
         if ($region) {
-            $workflow_params['regulatory_domain'] = $region;
+            $workflow_params['preferred_zone'] = $region;
             $this->log()->notice('Attempting to create site in region: {region}', compact('region'));
         }
 
