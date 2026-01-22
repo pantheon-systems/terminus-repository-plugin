@@ -434,8 +434,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             throw new TerminusException('Pantheon organization "{org}" not found or you are not a member.', ['org' => $org_id]);
         }
 
-        // 2. Determine ICR Upstream & Site Type & Platform
-        $icr_upstream = $this->getIcrUpstream($upstream->id, $user);
+        // 2. Determine Site Type & Platform
         $site_type = $this->getSiteType($upstream);
         $preferred_platform = $this->getPreferredPlatformForFramework($site_type);
 
@@ -552,7 +551,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
              throw new TerminusException('Could not determine GitHub installation.');
         }
 
-        $site_details = null;
         $existing_installation = true;
 
         if ($installation_id === 'new') {
@@ -580,8 +578,178 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         // 5. Validate repository exists (or not) depending on create-repo option.
         $this->validateRepositoryExistsOrNot($vcs_client, $repo_name, $pantheon_org->id, $installation_id, $create_repo);
 
-        // 6. Create Site Record in Pantheon
-        $this->log()->notice('Creating Pantheon site ...');
+        // 6. Use workflow for all sites
+        $this->createExternallyHostedSiteViaWorkflow(
+            $site_name,
+            $label,
+            $upstream,
+            $user,
+            $options,
+            $pantheon_org,
+            $installation_id,
+            $repo_name,
+            $create_repo,
+            $vcs_provider,
+            $preferred_platform
+        );
+    }
+
+    /**
+     * Creates a Node.js site using the create_node_js_sta_site workflow.
+     */
+    protected function createExternallyHostedSiteViaWorkflow(
+        string $site_name,
+        string $label,
+        Upstream $upstream,
+        User $user,
+        array $options,
+        $pantheon_org,
+        string $installation_id,
+        string $repo_name,
+        bool $create_repo,
+        string $vcs_provider,
+        string $preferred_platform
+    ) {
+        $vcs_client = $this->getVcsClient();
+        $this->log()->notice('Creating Pantheon site...');
+        $vcs_id = array_search($vcs_provider, $this->vcs_providers);
+
+        // Prepare workflow parameters
+        $workflow_params = [
+            'site_name' => $site_name,
+            'organization_id' => $pantheon_org->id,
+            'upstream_id' => $upstream->id,
+            'evcs' => [
+                'installation_id' => (string) $installation_id,
+                'vendor_id' => (string) $vcs_id,
+                'repo_name' => $repo_name,
+                'skip_create' => !$create_repo,
+                'is_private' => strtolower($options['visibility']) === 'private',
+            ],
+        ];
+
+        // Add optional parameters
+        if ($label) {
+            $workflow_params['label'] = $label;
+        }
+
+        $region = $options['region'] ?? $this->config->get('command_site_options_region');
+        if ($region) {
+            $workflow_params['preferred_zone'] = $region;
+            $this->log()->notice('Attempting to create site in region: {region}', compact('region'));
+        }
+
+        // Create the workflow
+        try {
+            $workflow = $user->getWorkflows()->create('create_site', [
+                'params' => $workflow_params,
+            ]);
+            $this->log()->notice('Site creation workflow initiated (ID: {id}).', ['id' => $workflow->id]);
+        } catch (\Throwable $t) {
+            throw new TerminusException(
+                'Error creating site workflow: {error_message}',
+                ['error_message' => $t->getMessage()]
+            );
+        }
+
+        // Wait for the workflow to complete
+        $this->log()->notice('Waiting for site creation workflow to complete...');
+        try {
+            $this->processWorkflow($workflow);
+            $this->log()->notice('Site creation workflow completed successfully.');
+        } catch (\Throwable $e) {
+            throw new TerminusException(
+                'Error during site creation workflow: {error_message}',
+                ['error_message' => $e->getMessage()]
+            );
+        }
+
+        // Get site UUID from workflow
+        $site_uuid = $workflow->get('waiting_for_task')->params->site_id ?? null;
+        if (!$site_uuid) {
+            throw new TerminusException('Could not get site ID from site creation workflow.');
+        }
+
+        // Get the created site
+        $site = $this->getSiteById($site_uuid);
+        if (!$site) {
+            throw new TerminusException('Failed to retrieve site object (ID: {id}) after workflow completion.', ['id' => $site_uuid]);
+        }
+
+        // Get repository URL from VCS client
+        $target_repo_url = null;
+        try {
+            $site_details = $vcs_client->getSiteDetails($site_uuid);
+            $site_details = (array) $site_details['data'][0];
+            $target_repo_url = $site_details['repo_url'] ?? null;
+        } catch (\Throwable $t) {
+            $this->log()->warning('Could not retrieve repository URL: {error}', ['error' => $t->getMessage()]);
+        }
+
+        // Clone repository if requested
+        $clone_repo = ($options['skip-clone-repo'] == false) && $options['create-repo'];
+        if ($clone_repo && $target_repo_url) {
+            try {
+                $this->cloneRepo($target_repo_url);
+            } catch (\Throwable $t) {
+                $this->log()->warning(
+                    'Error cloning repository: {error_message}',
+                    ['error_message' => $t->getMessage()]
+                );
+            }
+        }
+
+        // Wait for the dev environment to be ready.
+        try {
+            $this->waitForDevEnvironment($site, $preferred_platform);
+        } catch (TerminusException $e) {
+            // If the dev environment fails to wake, log a warning.
+            $this->log()->warning(
+                'Error waiting for dev environment to wake: {error_message}',
+                ['error_message' => $e->getMessage()]
+            );
+            $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
+        }
+
+        // Final Success Message
+        $this->log()->notice('---');
+        $this->log()->notice('Site "{site}" created successfully with external repository!', ['site' => $site->getName()]);
+        if ($target_repo_url) {
+            $this->log()->notice('Repository: {url}', ['url' => $target_repo_url]);
+        }
+        $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
+        if ($clone_repo) {
+            $this->log()->notice('Code repository cloned successfully to the current directory.');
+        }
+    }
+
+    /**
+     * Creates a Drupal/WordPress eVCS site using traditional orchestration.
+     */
+    protected function createExternallyHostedSiteViaOrchestration(
+        string $site_name,
+        string $label,
+        Upstream $upstream,
+        User $user,
+        array $options,
+        $pantheon_org,
+        string $installation_id,
+        string $repo_name,
+        bool $create_repo,
+        string $vcs_provider,
+        string $preferred_platform,
+        bool $existing_installation,
+        string $installation_human_name
+    ) {
+        $vcs_client = $this->getVcsClient();
+        $this->log()->notice('Creating Pantheon site...');
+        $vcs_id = array_search($vcs_provider, $this->vcs_providers);
+        $icr_upstream = $this->getIcrUpstream($upstream->id, $user);
+        $site_type = $this->getSiteType($upstream);
+        $is_interactive = $this->input()->isInteractive();
+
+        // Create Site Record in Pantheon
+        $this->log()->notice('Creating Pantheon site...');
         $workflow_options = [
             'label' => $label,
             'site_name' => $site_name,
@@ -603,7 +771,7 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
         $this->log()->notice('Pantheon site record created successfully (ID: {id}).', ['id' => $site_uuid]);
 
-        // 7. Interact with go-vcs-service: Create Workflow
+        // Interact with go-vcs-service: Create Workflow
         $this->log()->notice('Initiating workflow with VCS service...');
         $vcs_workflow_data = [
             'user_uuid' => $user->id,
@@ -613,28 +781,23 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'site_type' => $site_type,
         ];
 
-        $vcs_workflow_response = null;
         $vcs_workflow_uuid = null;
-
         try {
             $vcs_workflow_response = $vcs_client->createWorkflow($vcs_workflow_data);
             $this->log()->debug("VCS Service Workflow Response: " . print_r($vcs_workflow_response, true));
-
-            // Normalize data and extract key info.
             $data = (array) ($vcs_workflow_response['data'][0] ?? []);
             $vcs_workflow_uuid = $data['workflow_uuid'] ?? null;
             $this->log()->debug('VCS workflow UUID: {uuid}', ['uuid' => $vcs_workflow_uuid]);
-
             $this->log()->notice('VCS service workflow initiated successfully.');
         } catch (\Throwable $t) {
-            $this->cleanupPantheonSite($site_uuid, 'Failed to initiate workflow with VCS service.');
+            $this->deleteSite($site_uuid);
             throw new TerminusException(
                 'Error initiating workflow with VCS service: {error_message}',
                 ['error_message' => $t->getMessage()]
             );
         }
 
-        // 8. Existing installation, we need to authorize it.
+        // Authorize installation
         $authorize_data = [
             'site_uuid' => $site_uuid,
             'user_uuid' => $user->id,
@@ -642,23 +805,23 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             'org_uuid' => $pantheon_org->id,
         ];
         try {
-            $data = $this->getVcsClient()->authorize($authorize_data);
+            $data = $vcs_client->authorize($authorize_data);
             if (!$data['success']) {
                 throw new TerminusException("An error happened while authorizing: {error_message}", ['error_message' => $data['data']]);
             }
-            $site_details = $this->getVcsClient()->getSiteDetails($site_uuid);
+            $site_details = $vcs_client->getSiteDetails($site_uuid);
             $site_details = (array) $site_details['data'][0];
         } catch (TerminusException $e) {
-            $this->cleanupPantheonSite($site_uuid, 'Failed to authorize existing VCS installation.');
+            $this->deleteSite($site_uuid);
             throw $e;
         }
 
         if (!$site_details['is_active']) {
-            $this->cleanupPantheonSite($site_uuid, 'VCS service reports site is not active after authorization.');
+            $this->deleteSite($site_uuid);
             throw new TerminusException('Error authorizing with VCS service: Site is not yet active according to the service.');
         }
 
-        // 9. Create Repository via go-vcs-service (repoCreate)
+        // Create Repository via go-vcs-service
         $repo_action_done = "created";
         $repo_action_working = "creating";
         if ($create_repo) {
@@ -666,12 +829,9 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         } else {
             $repo_action_done = "linked";
             $repo_action_working = "linking";
-            $this->log()->notice("Linking existing repository '{repo}' as requested. Repository should exist at this point and the GitHub application should have access to it, otherwise this will fail.", ['repo' => $repo_name]);
-            if ($is_interactive && $existing_installation && !$create_repo && $vcs_provider == 'github') {
-                $this->pauseForGithubRepoAccess($installation_human_name ?? '', 60);
-            }
+            $this->log()->notice("Linking existing repository '{repo}' as requested.", ['repo' => $repo_name]);
         }
-        $vcs_id = array_search($vcs_provider, $this->vcs_providers);
+
         $repo_create_data = [
             'site_uuid' => $site_uuid,
             'label' => $repo_name,
@@ -704,14 +864,14 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 'action' => $repo_action_working,
                 'error_message' => $message
             ]);
-            $this->cleanupPantheonSite($site_uuid, printf("Error %s repository via VCS service.", $repo_action_working));
+            $this->deleteSite($site_uuid);
             throw new TerminusException(
                 'Error {action} repository via VCS service: {error_message}',
                 ['action' => $repo_action_working, 'error_message' => $message]
             );
         }
 
-        // 10. Install webhook if needed.
+        // Install webhook if needed
         if ($vcs_provider != 'github') {
             $this->log()->notice('Next: Installing webhook...');
             try {
@@ -721,12 +881,12 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     'workflow_uuid' => $vcs_workflow_uuid,
                     'site_uuid' => $site_uuid,
                 ];
-                $data = $this->getVcsClient()->installWebhook($webhook_data);
+                $data = $vcs_client->installWebhook($webhook_data);
                 if (!$data['success']) {
                     throw new TerminusException("An error happened while installing webhook: {error_message}", ['error_message' => $data['data']]);
                 }
             } catch (\Throwable $t) {
-                $this->cleanupPantheonSite($site_uuid, 'Failed to install webhook.');
+                $this->deleteSite($site_uuid);
                 throw new TerminusException(
                     'Error installing webhook: {error_message}',
                     ['error_message' => $t->getMessage()]
@@ -735,22 +895,11 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->notice('Webhook installed');
         }
 
-        // 11. Deploy Pantheon Product/Upstream (using ICR upstream)
+        // Deploy Pantheon Product/Upstream (using ICR upstream)
         $site = $this->getSiteById($site_uuid);
         if (!$site) {
-             // Should not happen if we got this far, but check.
-             $this->cleanupPantheonSite($site_uuid, 'Error while retrieving new site information after repo creation');
+             $this->deleteSite($site_uuid);
              throw new TerminusException('Failed to retrieve site object (ID: {id}) before deploying product.', ['id' => $site_uuid]);
-        }
-
-        if ($preferred_platform == "sta") {
-            try {
-                $this->log()->notice('Waiting for project to be ready for the next step...');
-                $this->getVcsClient()->processProjectReady($site_uuid, self::DEFAULT_TIMEOUT);
-            } catch (TerminusException $e) {
-                $this->log()->warning("Error while waiting for project ready: {error_message}", ['error_message' => $e->getMessage()]);
-                $this->log()->warning("Moving on to the next step, but this may cause issues with platform domain assignment.");
-            }
         }
 
         $this->log()->notice('Provisioning site resources...');
@@ -758,22 +907,11 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->processWorkflow($site->deployProduct($icr_upstream->id));
             $this->log()->notice('Site resources provisioned successfully.');
         } catch (\Throwable $e) {
-            // The site exists, the repo exists, just the CMS deploy failed.
-            $this->cleanupPantheonSite($site_uuid, sprintf('Error occurred while provisioning site resources: %s', $e->getMessage()), true);
+            $this->deleteSite($site_uuid);
             throw new TerminusException('Error deploying product: {msg}', ['msg' => $e->getMessage()]);
         }
 
-        // 12. Push Initial Code to External Repository via go-vcs-service (repoInitialize)
-        if ($preferred_platform == "sta") {
-            try {
-                $this->log()->notice('Waiting for project to be ready...');
-                $this->getVcsClient()->processHealthcheck($site_uuid, self::DEFAULT_TIMEOUT);
-            } catch (TerminusException $e) {
-                $this->log()->warning("Error while waiting for project healthcheck: {error_message}", ['error_message' => $e->getMessage()]);
-                $this->log()->warning("Moving on to the next step, but you may need to push another commit to the repository to get things started...");
-            }
-        }
-
+        // Push Initial Code to External Repository
         if ($options['create-repo']) {
             $wf_start_time = time();
             $this->log()->notice('Pushing initial code from upstream ({up_id}) to {repo_url}...', ['up_id' => $upstream->id, 'repo_url' => $target_repo_url]);
@@ -800,9 +938,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 }
             } catch (\Throwable $t) {
                 $clone_repo = false;
-
-                // If repoInitialize fails, the site and repo exist, but code isn't there.
-                // Don't delete the site. Log a warning and the repo URL.
                 $this->log()->warning(
                     'Error initializing repository with upstream contents: {error_message}',
                     ['error_message' => $t->getMessage()]
@@ -813,41 +948,23 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 ]);
             }
 
-            // 13. Wait for workflow and site to wake.
-            if ($upstream->get('framework') !== 'nodejs') {
-                $this->log()->notice('Waiting for sync code workflow to succeed...');
-                try {
-                    $this->waitForWorkflow($wf_start_time, $site, 'dev', '', self::DEFAULT_TIMEOUT, 10);
-                } catch (TerminusException $e) {
-                    // If the workflow fails, the site and repo exist, but code isn't there.
-                    // Don't delete the site. Log a warning and the repo URL.
-                    $this->log()->warning(
-                        'Error waiting for sync code workflow to succeed: {error_message}',
-                        ['error_message' => $e->getMessage()]
-                    );
-                    $this->log()->warning('The site and repository have been created, but the sync_code workflow was not found; check for its completion in the Pantheon Dashboard.');
-                }
-            }
-        } else {
-            $this->log()->notice('Requesting initial code delivery...');
+            // Wait for sync code workflow
+            $this->log()->notice('Waiting for sync code workflow to succeed...');
             try {
-                $this->getVcsClient()->buildRepo($site_uuid);
+                $this->waitForWorkflow($wf_start_time, $site, 'dev', '', self::DEFAULT_TIMEOUT, 10);
             } catch (TerminusException $e) {
-                // If build fails (e.g., empty repo), clean up the site and rethrow
-                try {
-                    $this->cleanupPantheonSite($site_uuid, $e->getMessage(), true);
-                } catch (\Throwable $cleanup_error) {
-                    // Log cleanup failure but don't let it override the original error
-                    $this->log()->warning('Cleanup failed: {error}', ['error' => $cleanup_error->getMessage()]);
-                }
-                throw $e;
+                $this->log()->warning(
+                    'Error waiting for sync code workflow to succeed: {error_message}',
+                    ['error_message' => $e->getMessage()]
+                );
+                $this->log()->warning('The site and repository have been created, but the sync_code workflow was not found; check for its completion in the Pantheon Dashboard.');
             }
         }
-        // Wait for the dev environment to be ready.
+
+        // Wait for dev environment
         try {
             $this->waitForDevEnvironment($site, $preferred_platform);
         } catch (TerminusException $e) {
-            // If the dev environment fails to wake, log a warning.
             $this->log()->warning(
                 'Error waiting for dev environment to wake: {error_message}',
                 ['error_message' => $e->getMessage()]
@@ -855,13 +972,31 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             $this->log()->warning('The site and repository have been created, but the dev environment may be not yet available.');
         }
 
-        // 14. Final Success Message & Wait for Wake
+        // Final Success Message
         $this->log()->notice('---');
-        $this->log()->notice('Site "{site}" created successfully with GitHub repository!', ['site' => $site->getName()]);
-        $this->log()->notice('GitHub Repository: {url}', ['url' => $target_repo_url]);
+        $this->log()->notice('Site "{site}" created successfully with external repository!', ['site' => $site->getName()]);
+        $this->log()->notice('Repository: {url}', ['url' => $target_repo_url]);
         $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
-        if ($clone_repo) {
+        if ($clone_repo ?? false) {
             $this->log()->notice('Code repository cloned successfully to the current directory.');
+        }
+    }
+
+    /**
+     * Deletes a site (simple wrapper for error handling).
+     */
+    protected function deleteSite(string $site_uuid): void
+    {
+        try {
+            $site = $this->sites()->get($site_uuid);
+            if ($site) {
+                $workflow = $site->delete();
+                $workflow->setOwnerObject($this->session()->getUser());
+                $this->processWorkflow($workflow);
+                $this->log()->notice('Pantheon site cleanup successful.');
+            }
+        } catch (\Throwable $t) {
+            $this->log()->warning('Could not clean up site: {error}', ['error' => $t->getMessage()]);
         }
     }
 
@@ -894,38 +1029,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 'Repository "{repo}" does not exist in the selected VCS organization. Cannot link it. Please create the repository first.',
                 ['repo' => $repo_name]
             );
-        }
-    }
-
-    /**
-     * Pauses execution to allow user to ensure repo access.
-     */
-    private function pauseForGithubRepoAccess(string $installation_human_name, int $timeout)
-    {
-        $installation_link = sprintf(
-            'https://github.com/%s',
-            $installation_human_name,
-        );
-        $this->log()->notice(
-            "If you have not already done so, please ensure that the application has access to the repository by visiting your GitHub account: {url}, " .
-            "then Settings -> Applications. Select the current application and ensure it has access to the repository you wish to use.",
-            ['url' => $installation_link]
-        );
-        $this->log()->notice(
-            "Pausing for up to {$timeout} seconds to allow time for you to complete this step if needed. Press enter to continue..."
-        );
-
-        $answered = false;
-        $stream = STDIN;
-        $read = [$stream];
-        $write = null;
-        $except = null;
-
-        if (stream_select($read, $write, $except, $timeout)) {
-            $answered = true;
-        }
-        if (!$answered) {
-            $this->log()->notice("Continuing after {$timeout} seconds...");
         }
     }
 
@@ -1053,48 +1156,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         }
         // Default to 'cos' for cms-drupal, cms-wordpress etc.
         return 'cos';
-    }
-
-    /**
-     * Cleans up the Pantheon site record if creation fails mid-process.
-     * Adapted from RepositorySiteCreateCommand::cleanup
-     */
-    protected function cleanupPantheonSite(string $site_uuid, string $failure_reason, bool $cleanup_vcs = true): void
-    {
-        $this->log()->error('Site creation failed: {reason}', ['reason' => $failure_reason]);
-        $this->log()->notice("Attempting to clean up Pantheon site (ID: {id})...", ['id' => $site_uuid]);
-
-        try {
-            $site = $this->sites()->get($site_uuid);
-            if ($site) {
-                $workflow = $site->delete();
-                // Watch the workflow using the user object since the site object will be gone
-                $workflow->setOwnerObject($this->session()->getUser());
-                $this->processWorkflow($workflow);
-                $message = $workflow->getMessage();
-                $this->log()->notice('Pantheon site cleanup successful: {msg}', ['msg' => $message]);
-
-                if ($cleanup_vcs) {
-                    // Call VCS service cleanup if needed
-                    $this->log()->notice('Cleaning up VCS records in Pantheon...');
-                    try {
-                        $this->getVcsClient()->cleanupSiteDetails($site_uuid);
-                        $this->log()->notice('VCS records cleanup successful. You may need to manually delete the repository if it was created.');
-                    } catch (\Throwable $vcs_error) {
-                        // VCS cleanup is best-effort; don't fail if it doesn't work
-                        $this->log()->warning('VCS records cleanup failed: {error}. This is non-critical.', ['error' => $vcs_error->getMessage()]);
-                    }
-                }
-            } else {
-                 $this->log()->warning('Could not find site {id} to clean up (already deleted?).', ['id' => $site_uuid]);
-            }
-        } catch (TerminusNotFoundException $e) {
-             $this->log()->warning('Could not find site {id} to clean up (already deleted?).', ['id' => $site_uuid]);
-        } catch (\Throwable $t) {
-            // Catch potential errors during deletion workflow processing
-            $this->log()->error("Error during Pantheon site cleanup: {error_message}", ['error_message' => $t->getMessage()]);
-            throw new TerminusException('Error during Pantheon site cleanup: {error_message}', ['error_message' => $t->getMessage()]);
-        }
     }
 
     /**
