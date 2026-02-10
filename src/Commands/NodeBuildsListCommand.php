@@ -27,7 +27,7 @@ class NodeBuildsListCommand extends SiteCommand implements SiteAwareInterface, R
      * @filter-output
      *
      * @command node:builds:list
-     * @aliases nlbl,node:logs:build:list
+     * @aliases nbl,nlbl,node:logs:build:list
      *
      * @field-labels
      *   id: ID
