@@ -11,12 +11,15 @@ use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use League\Container\ContainerAwareInterface;
 use League\Container\ContainerAwareTrait;
+use Pantheon\Terminus\Request\RequestAwareInterface;
+use Pantheon\TerminusRepository\VcsApi\VcsClientAwareTrait;
 
-class SecretsHandlingCommand implements SiteAwareInterface, LoggerAwareInterface, ContainerAwareInterface
+class SecretsHandlingCommand implements SiteAwareInterface, LoggerAwareInterface, ContainerAwareInterface, RequestAwareInterface
 {
     use SiteAwareTrait;
     use LoggerAwareTrait;
     use ContainerAwareTrait;
+    use VcsClientAwareTrait;
 
   /**
    * @hook post-command secret:site:set
@@ -67,12 +70,11 @@ class SecretsHandlingCommand implements SiteAwareInterface, LoggerAwareInterface
 
         $this->logger->info('Rebuilding application for environment "{env}"...', ['env' => $env]);
 
-        $codeRebuildCommand = $this->container->get('Pantheon\Terminus\Commands\Env\CodeRebuildCommandCommands');
-        $codeRebuildCommand->rebuildFromVcs($site->get('id'), $env);
+        $this->getVcsClient()->rebuild($site->get('id'), $env);
 
         $this->logger->notice('Application rebuild triggered for environment "{env}".', ['env' => $env]);
         if (!$env_name) {
-            $this->logger->notice('You may want to rebuild a different environment using "{command}"', ['command' => 'terminus env:code-rebuild <site>.<env>.']);
+            $this->logger->notice('You may want to rebuild a different environment using "{command}"', ['command' => 'terminus node:build:rebuild <site>.<env>.']);
         }
     }
 }

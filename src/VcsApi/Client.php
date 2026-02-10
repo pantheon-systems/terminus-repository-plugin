@@ -210,6 +210,37 @@ class Client implements ConfigAwareInterface
     }
 
     /**
+     * Rebuild code for a given site environment.
+     *
+     * @param string $site_id
+     * @param string $env
+     * @param string|null $commit_id
+     *
+     * @return array
+     *
+     * @throws \Pantheon\Terminus\Exceptions\TerminusException
+     */
+    public function rebuild(string $site_id, string $env, ?string $commit_id = null): array
+    {
+        $json_body = new \stdClass();
+
+        if ($commit_id !== null) {
+            $json_body->commit = $commit_id;
+        }
+
+        $request_options = [
+            'method' => 'POST',
+            'json' => $json_body,
+        ];
+
+        return $this->requestApi(
+            sprintf('site-details/%s/environments/%s/rebuild', $site_id, $env),
+            $request_options,
+            "X-Pantheon-Session"
+        );
+    }
+
+    /**
      * Get site details by id.
      */
     public function getSiteDetailsById(string $site_id): array
