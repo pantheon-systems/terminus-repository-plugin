@@ -11,7 +11,6 @@ use Pantheon\Terminus\Models\TerminusModel;
  */
 class Build extends TerminusModel
 {
-
     public const PRETTY_NAME = 'build';
 
     /**

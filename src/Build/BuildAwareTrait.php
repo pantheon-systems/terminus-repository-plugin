@@ -14,7 +14,6 @@ use Pantheon\TerminusRepository\Collections\Builds;
  */
 trait BuildAwareTrait
 {
-
     use ContainerAwareTrait;
 
     /**

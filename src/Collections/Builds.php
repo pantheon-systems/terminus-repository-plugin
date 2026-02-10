@@ -14,7 +14,6 @@ use Pantheon\TerminusRepository\Models\Build;
  */
 class Builds extends TerminusCollection
 {
-
     use ConfigAwareTrait;
     use RequestAwareTrait;
 

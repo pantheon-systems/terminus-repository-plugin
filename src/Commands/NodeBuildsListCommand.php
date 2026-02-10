@@ -15,7 +15,6 @@ use Pantheon\TerminusRepository\Build\BuildAwareTrait;
  */
 class NodeBuildsListCommand extends SiteCommand implements SiteAwareInterface, RequestAwareInterface
 {
-
     use BuildAwareTrait;
     use SiteAwareTrait;
     use RequestAwareTrait;
@@ -64,7 +63,7 @@ class NodeBuildsListCommand extends SiteCommand implements SiteAwareInterface, R
         $builds = $this->getFromUrl(
             sprintf('/api/sites/%s/environment/%s/build/list?%s', $site->id, $env, http_build_query([
                     'status' => $options['status'],
-                    'limit'=> $options['limit'],
+                    'limit' => $options['limit'],
                     'branch' => $options['branch'],
             ]))
         );
