@@ -24,8 +24,8 @@ class NodeBuildRebuildCommand extends TerminusCommand implements SiteAwareInterf
      *
      * @authorize
      *
-     * @command node:build:rebuild
-     * @aliases nrb
+     * @command node:builds:rebuild
+     * @aliases nrb,node:build:rebuild
      *
      * @param string $site_env Site & environment in the format `site-name.env`
      * @option string $commit Specific commit hash to rebuild (optional, rebuilds latest if omitted)
