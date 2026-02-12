@@ -136,6 +136,13 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         $user = $this->session()->getUser();
         $upstream = $this->getValidatedUpstream($user, $upstream_id);
 
+        // Validate Node.js sites cannot use Pantheon-hosted repositories
+        if ($upstream->get('framework') === 'nodejs' && $vcs_provider === 'pantheon') {
+            throw new TerminusException(
+                'Node.js sites cannot be created with Pantheon-hosted repositories. Please specify an external VCS provider using --vcs-provider (e.g., --vcs-provider=github).'
+            );
+        }
+
         // Branch based on VCS provider
         if ($vcs_provider === 'pantheon') {
             $this->createPantheonHostedSite($site_name, $label, $upstream, $user, $options);
