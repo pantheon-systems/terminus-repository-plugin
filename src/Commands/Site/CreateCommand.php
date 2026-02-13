@@ -314,6 +314,12 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
 
             // Finally, wait for the dev environment to be ready.
             $this->waitForDevEnvironment($site, "cos");
+
+            // Output final success message
+            $this->log()->notice('---');
+            $this->log()->notice('Site "{site}" created successfully!', ['site' => $site->getName()]);
+            $dashboard_url = $this->buildDashboardUrl($site, $upstream, $org ? $org->id : null);
+            $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $dashboard_url]);
         } else {
             // This shouldn't happen if the create workflow succeeded and returned an ID, but good to handle.
             throw new TerminusException('Failed to retrieve site object (ID: {id}) after creation workflow succeeded.', ['id' => $site_id]);
@@ -381,10 +387,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                     $this->waitForWakeSta($env);
                 }
                 $this->log()->notice('Site dev environment is available.');
-                $this->log()->notice('---');
-                $this->log()->notice('Site "{site}" created successfully!', ['site' => $site->getName()]);
-                $this->log()->notice('Dashboard: {url}', ['url' => $site->dashboardUrl()]);
-                $this->log()->notice('---');
             } else {
                 // This case should ideally not happen if the site exists
                 $this->log()->warning(
@@ -724,7 +726,8 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if ($target_repo_url) {
             $this->log()->notice('Repository: {url}', ['url' => $target_repo_url]);
         }
-        $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $site->dashboardUrl()]);
+        $dashboard_url = $this->buildDashboardUrl($site, $upstream, $pantheon_org->id);
+        $this->log()->notice('Pantheon Dashboard: {url}', ['url' => $dashboard_url]);
         if ($clone_repo) {
             $this->log()->notice('Code repository cloned successfully to the current directory.');
         }
@@ -962,5 +965,30 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
         if (preg_match('/-$/', $repo_name)) {
             throw new TerminusException('Repository name "{name}" cannot end with a dash.', ['name' => $repo_name]);
         }
+    }
+
+    /**
+     * Builds the dashboard URL for a site.
+     *
+     * @param Site $site The site object
+     * @param Upstream $upstream The upstream object to determine framework
+     * @param string|null $org_id Organization ID
+     * @return string Dashboard URL
+     */
+    protected function buildDashboardUrl(Site $site, Upstream $upstream, ?string $org_id = null): string
+    {
+        $site_id = $site->id;
+
+        // Determine site type based on framework
+        $framework = $upstream->get('framework');
+        $site_type = ($framework === 'nodejs') ? 'node-site' : 'cms-site';
+
+        // If org_id is provided, use the new workspace URL format
+        if ($org_id) {
+            return sprintf('https://dashboard.pantheon.io/workspace/%s/%s/%s', $org_id, $site_type, $site_id);
+        }
+
+        // Fallback to default dashboard URL if no org
+        return $site->dashboardUrl();
     }
 }
