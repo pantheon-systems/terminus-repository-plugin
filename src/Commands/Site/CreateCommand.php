@@ -661,6 +661,13 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
             );
         }
 
+        // Get site UUID from workflow
+        $site_uuid = $workflow->get('waiting_for_task')->params->site_id ?? null;
+        if (!$site_uuid) {
+            throw new TerminusException('Could not get site ID from site creation workflow.');
+        }
+        $this->log()->notice('Site creation in process for site ID: {site_id}', ['site_id' => $site_uuid]);
+
         // Wait for the workflow to complete
         $this->log()->notice('Waiting for site creation workflow to complete...');
         try {
@@ -671,12 +678,6 @@ class CreateCommand extends SiteCommand implements RequestAwareInterface, SiteAw
                 'Error during site creation workflow: {error_message}',
                 ['error_message' => $e->getMessage()]
             );
-        }
-
-        // Get site UUID from workflow
-        $site_uuid = $workflow->get('waiting_for_task')->params->site_id ?? null;
-        if (!$site_uuid) {
-            throw new TerminusException('Could not get site ID from site creation workflow.');
         }
 
         // Get the created site
