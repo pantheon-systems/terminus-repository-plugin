@@ -23,18 +23,19 @@ class LinkCommand extends TerminusCommand implements RequestAwareInterface
     /**
      * Links an existing VCS organization to a new Pantheon organization.
      *
-     * This command allows you to share a VCS organization connection across multiple
-     * Pantheon organizations, enabling a many-to-many relationship between GitHub
-     * organizations and Pantheon organizations.
+     * This command allows you to share a VCS (e.g. GitHub) organization 
+     * connection across multiple Pantheon organizations, enabling a 
+     * many-to-many relationship between GitHub organizations and Pantheon 
+     * organizations.
      *
      * @authorize
      *
      * @command vcs:connection:link
      * @aliases vcs-connection-link
      *
-     * @param string $destination_org Destination Pantheon organization name, label, or ID (where the VCS connection will be linked).
+     * @param string $destination_org Destination Pantheon organization name, label, or ID (e.g. 1abc23d4-1a2b-1abc-a1bc-1abcdef12gh3) where the VCS connection will be linked.
      * @option vcs-org VCS organization name (e.g., GitHub organization name). If not provided, you'll be prompted to select from available VCS organizations.
-     * @option source-org Source Pantheon organization name, label, or ID that already has the VCS connection. If not provided and multiple organizations have the same VCS connection, you'll be prompted to select one.
+     * @option source-org Source Pantheon organization name, label, or ID (e.g. 1abc23d4-1a2b-1abc-a1bc-1abcdef12gh3) that already has the VCS connection. If not provided and multiple organizations have the same VCS connection, you'll be prompted to select one.
      *
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
      *
