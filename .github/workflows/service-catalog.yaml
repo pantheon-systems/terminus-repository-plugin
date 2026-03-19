@@ -15,6 +15,7 @@ jobs:
     # Allowlisted in: projects/pantheon-wif/workload-identity-federation.tf
     # See: https://github.com/pantheon-systems/gce-terraform/blob/master/projects/pantheon-wif/workload-identity-federation.tf
     uses: pantheon-systems/service-catalog/.github/workflows/docs-like-code.yaml@32b1ec7e3c6aad745b16aea4816cdd756368a062  # main 2026-02-26T14:19:18Z
+
   catalog-upload:
     # This SHA is allowlisted in the pantheon-service-catalog WIF pool for production classification
     # Allowlist location: projects/pantheon-wif/workload-identity-federation.tf (attribute.jwr_repo_file_env)
