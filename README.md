@@ -1,6 +1,8 @@
 # Terminus Repository Plugin
 
-[![Early Access](https://img.shields.io/badge/Pantheon-Early_Access-yellow?logo=pantheon&color=FFDC28)](https://docs.pantheon.io/oss-support-levels#early-access)
+[![Deprecated](https://img.shields.io/badge/Pantheon-Deprecated-yellow?logo=pantheon&color=FFDC28)](https://pantheon.io/docs/oss-support-levels#deprecated)
+
+**⚠️ This plugin is deprecated. Repository management functionality has been absorbed into [Terminus](https://github.com/pantheon-systems/terminus) core. Please use the built-in Terminus repository commands instead.**
 
 This Terminus plugin configure directs integration between individual Pantheon sites and individual GitHub repositories via [Pantheon's GitHub Application](https://docs.pantheon.io/github-application).
 This plugin will eventually handle direct integration with other Git providers, such as GitLab and Bitbucket.
