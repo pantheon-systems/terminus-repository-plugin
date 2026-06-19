@@ -21,7 +21,7 @@ class ListCommand extends TerminusCommand implements RequestAwareInterface
     use StructuredListTrait;
 
     /**
-     * Lists connected VCS installations from the VCS API.
+     * Lists VCS installations connected to the provided Pantheon organization from the VCS API.
      *
      * @authorize
      *
@@ -38,9 +38,9 @@ class ListCommand extends TerminusCommand implements RequestAwareInterface
      * @param string $organization Organization name, label, or ID.
      *
      *
-     * @usage <organization> Lists connected VCS installations from the VCS API.
+     * @usage <organization> Lists VCS installations connected to the provided Pantheon organization from the VCS API.
      *
-     * @usage Lists connected VCS installations from the VCS API.
+     * @usage Lists VCS installations connected to the provided Pantheon organization from the VCS API.
      *
      * @return RowsOfFields
      * @throws \Pantheon\Terminus\Exceptions\TerminusException
